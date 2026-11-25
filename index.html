@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>我的待办 + 专注时钟</title>
+<title>我的待办 + 专注时钟（正计时·清空）</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <script>
 (function () {
@@ -31,6 +31,7 @@
     --timer-track: #e4e8ee;
     --success: #10b981;
     --warning: #f59e0b;
+    --stopwatch: #8b5cf6;
   }
   [data-theme="dark"] {
     color-scheme: dark;
@@ -49,6 +50,7 @@
     --timer-track: #2b3540;
     --success: #34d399;
     --warning: #fbbf24;
+    --stopwatch: #a78bfa;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
@@ -79,12 +81,12 @@
     align-items: center;
     gap: 8px;
   }
- .logo-icon {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  color: var(--brand);/* 浅色/深色模式都会自动用你的主题蓝 */
-}
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    color: var(--brand);
+  }
   .header-right {
     display: flex;
     align-items: center;
@@ -160,6 +162,35 @@
     transition: background .2s, border-color .2s;
   }
 
+  .timer-mode-switch {
+    display: flex;
+    gap: 6px;
+    background: var(--card);
+    border-radius: 999px;
+    padding: 4px;
+    border: 1px solid var(--line);
+  }
+  .timer-mode-switch button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 999px;
+    padding: 6px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all .2s;
+  }
+  .timer-mode-switch button:hover { color: var(--text); background: var(--hover); }
+  .timer-mode-switch button.active {
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(37,99,235,.25);
+  }
+  .timer-mode-switch button.active.stopwatch-mode {
+    background: var(--stopwatch);
+    box-shadow: 0 2px 6px rgba(139,92,246,.25);
+  }
+
   .timer-ring-wrap {
     position: relative;
     width: 200px;
@@ -187,6 +218,7 @@
   }
   .timer-ring-fg.finished { stroke: var(--danger); }
   .timer-ring-fg.warning { stroke: var(--warning); }
+  .timer-ring-fg.stopwatch { stroke: var(--stopwatch); transition: stroke-dashoffset .2s linear; }
   .timer-display {
     position: absolute;
     font-size: 40px;
@@ -197,6 +229,7 @@
     transition: color .3s;
   }
   .timer-display.running { color: var(--brand); }
+  .timer-display.stopwatch-running { color: var(--stopwatch); }
   .timer-display.finished {
     color: var(--danger);
     animation: pulse 1s infinite;
@@ -284,6 +317,25 @@
   }
   .timer-controls .btn-reset:hover { background: var(--hover); color: var(--text); }
 
+  .timer-clear-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 2px;
+  }
+  .timer-clear-wrap button {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    padding: 5px 16px;
+    border-radius: 999px;
+  }
+  .timer-clear-wrap button:hover {
+    background: rgba(220, 38, 38, .1);
+    border-color: var(--danger);
+  }
+
   /* ---------- 统计面板 ---------- */
   .stats-panel {
     margin-top: 16px;
@@ -334,6 +386,7 @@
   .stat-card.good .stat-value { color: var(--success); }
   .stat-card.bad .stat-value { color: var(--danger); }
   .stat-card.info .stat-value { color: var(--brand); }
+  .stat-card.purple .stat-value { color: var(--stopwatch); }
 
   /* 筛选栏 */
   .filters {
@@ -483,17 +536,12 @@
   <header>
     <h1>
       <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
-      <!-- 上下底座：品牌蓝 -->
       <rect x="10" y="5" width="44" height="6" rx="3" fill="currentColor"/>
       <rect x="10" y="53" width="44" height="6" rx="3" fill="currentColor"/>
-      <!-- 沙漏外轮廓：品牌蓝 -->
       <path d="M18 11 L46 11 L34 32 L46 53 L18 53 L30 32 Z"
             fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
-      <!-- 上半部沙粒：最浅 -->
       <path d="M23 16 L41 16 L35 26 L29 26 Z" fill="#fcd34d" opacity="0.75"/>
-      <!-- 下半部沙堆：稍实 -->
       <path d="M22 48 L42 48 L34 40 L30 40 Z" fill="#fcd34d" opacity="0.95"/>
-      <!-- 中间流沙：最实 -->
       <rect x="30" y="30" width="4" height="8" rx="2" fill="#fcd34d"/>
     </svg>
     我的待办
@@ -521,6 +569,12 @@
 
   <!-- 专注时钟 -->
   <div class="timer-section">
+    <!-- 模式切换 -->
+    <div class="timer-mode-switch" id="timer-mode-switch">
+      <button type="button" data-mode="countdown" class="active">⏳ 倒计时</button>
+      <button type="button" data-mode="stopwatch">⏱️ 正计时</button>
+    </div>
+
     <div class="timer-ring-wrap">
       <svg viewBox="0 0 100 100" aria-hidden="true">
         <circle class="timer-ring-bg" cx="50" cy="50" r="45"></circle>
@@ -537,13 +591,14 @@
       </select>
     </div>
 
+    <!-- 倒计时预设，正计时时隐藏 -->
     <div class="timer-presets" id="timer-presets">
       <button type="button" data-min="25" class="active">25 分钟</button>
       <button type="button" data-min="45">45 分钟</button>
       <button type="button" data-min="60">60 分钟</button>
     </div>
 
-    <div class="timer-custom">
+    <div class="timer-custom" id="timer-custom-row">
       <label for="custom-min">自定义</label>
       <input type="number" id="custom-min" min="1" max="180" value="25" step="1">
       <span>分钟</span>
@@ -555,6 +610,11 @@
       <button type="button" id="btn-pause" class="btn-pause" style="display:none;">暂停</button>
       <button type="button" id="btn-finish" class="btn-finish" style="display:none;">完成并记录</button>
       <button type="button" id="btn-reset" class="btn-reset" style="display:none;">重置</button>
+    </div>
+
+    <!-- 清空专注时长 -->
+    <div class="timer-clear-wrap">
+      <button type="button" id="btn-clear-focus">🧹 清空专注时长统计</button>
     </div>
   </div>
 
@@ -775,6 +835,25 @@
     save();
     render();
     renderStats();
+  }
+
+  // 清空专注时长统计
+  function clearFocusStats() {
+    if (!confirm('确定清空所有专注时长统计吗？\n\n• 总专注次数、总专注时长、独立专注时长将归零\n• 各任务上的专注记录也会被清除\n\n任务本身和完成状态不会受影响。')) return;
+
+    state.globalFocus.count = 0;
+    state.globalFocus.minutes = 0;
+    state.globalFocus.standaloneMinutes = 0;
+
+    state.tasks.forEach(function (t) {
+      t.focusCount = 0;
+      t.focusMinutes = 0;
+    });
+
+    save();
+    render();
+    renderStats();
+    alert('专注时长统计已清空，可以开始新的一天啦 ☀️');
   }
 
   // ---------- 筛选与排序 ----------
@@ -1095,16 +1174,19 @@
     applyThemeButton();
   }
 
-  // ---------- 专注时钟（支持后台计时） ----------
+  // ---------- 专注时钟（支持倒计时 + 正计时） ----------
   var DEFAULT_MIN = 25;
   var RING_CIRCUM = 2 * Math.PI * 45; 
   var timer = {
-    total: DEFAULT_MIN * 60,
-    remaining: DEFAULT_MIN * 60,
+    mode: 'countdown',        // 'countdown' 或 'stopwatch'
+    total: DEFAULT_MIN * 60,  // 倒计时总秒数（正计时时无意义）
+    remaining: DEFAULT_MIN * 60, // 倒计时剩余秒数
+    elapsed: 0,               // 正计时已过秒数
     intervalId: null,
     running: false,
     startedFocusTaskId: '',
-    endTime: 0 // 新增：预期结束的绝对时间戳（毫秒）
+    startTime: 0,             // 本轮开始的时间戳（用于正计时校准）
+    endTime: 0                // 倒计时预期结束时间戳
   };
 
   var timerDisplay = document.getElementById('timer-display');
@@ -1117,6 +1199,8 @@
   var customInput = document.getElementById('custom-min');
   var btnApplyCustom = document.getElementById('btn-apply-custom');
   var focusTaskSelect = document.getElementById('focus-task');
+  var timerModeSwitch = document.getElementById('timer-mode-switch');
+  var timerCustomRow = document.getElementById('timer-custom-row');
 
   timerRing.style.strokeDasharray = RING_CIRCUM.toFixed(2);
 
@@ -1126,34 +1210,66 @@
     return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
   }
 
+  // 根据当前模式更新 UI
   function updateTimerUI() {
-    timerDisplay.textContent = formatTime(timer.remaining);
+    var isCountdown = timer.mode === 'countdown';
+    var displaySeconds;
+    var pct;
+    var isFinished = false;
+    var isWarning = false;
 
-    var pct = timer.total > 0 ? timer.remaining / timer.total : 0;
-    var offset = RING_CIRCUM * (1 - pct);
-    timerRing.style.strokeDashoffset = offset.toFixed(2);
+    if (isCountdown) {
+      displaySeconds = timer.remaining;
+      isFinished = timer.remaining === 0;
+      isWarning = !isFinished && timer.remaining <= 60;
+      pct = timer.total > 0 ? timer.remaining / timer.total : 0;
+    } else {
+      displaySeconds = timer.elapsed;
+      pct = timer.elapsed > 0 ? Math.min((timer.elapsed % 3600) / 3600, 1) : 0;
+    }
 
-    var isFinished = timer.remaining === 0;
-    var isWarning = !isFinished && timer.remaining <= 60;
+    timerDisplay.textContent = formatTime(displaySeconds);
 
-    timerDisplay.classList.toggle('running', timer.running);
-    timerDisplay.classList.toggle('finished', isFinished);
-    timerRing.classList.toggle('finished', isFinished);
-    timerRing.classList.toggle('warning', isWarning);
+    // 进度环
+    if (isCountdown) {
+      var offset = RING_CIRCUM * (1 - pct);
+      timerRing.style.strokeDashoffset = offset.toFixed(2);
+    } else {
+      // 正计时：环从 0 走到 1，每满 60 分钟归零（视觉上循环）
+      var stopwatchPct = timer.elapsed > 0 ? (timer.elapsed % 3600) / 3600 : 0;
+      var offset2 = RING_CIRCUM * (1 - stopwatchPct);
+      timerRing.style.strokeDashoffset = offset2.toFixed(2);
+    }
 
+    // class 切换
+    timerDisplay.classList.toggle('running', timer.running && isCountdown);
+    timerDisplay.classList.toggle('stopwatch-running', timer.running && !isCountdown);
+    timerDisplay.classList.toggle('finished', isCountdown && isFinished);
+    timerRing.classList.toggle('finished', isCountdown && isFinished);
+    timerRing.classList.toggle('warning', isCountdown && isWarning);
+    timerRing.classList.toggle('stopwatch', !isCountdown);
+
+    // 按钮显示
     if (timer.running) {
       btnStart.style.display = 'none';
       btnPause.style.display = 'inline-block';
       btnFinish.style.display = 'inline-block';
       btnReset.style.display = 'inline-block';
       btnPause.textContent = '暂停';
-    } else if (timer.remaining < timer.total && timer.remaining > 0) {
+    } else if (!isCountdown && timer.elapsed > 0) {
+      // 正计时暂停中
+      btnStart.style.display = 'inline-block';
+      btnStart.textContent = '继续';
+      btnPause.style.display = 'none';
+      btnFinish.style.display = 'inline-block';
+      btnReset.style.display = 'inline-block';
+    } else if (isCountdown && timer.remaining < timer.total && timer.remaining > 0) {
       btnStart.style.display = 'inline-block';
       btnStart.textContent = '继续专注';
       btnPause.style.display = 'none';
       btnFinish.style.display = 'inline-block';
       btnReset.style.display = 'inline-block';
-    } else if (isFinished) {
+    } else if (isCountdown && isFinished) {
       btnStart.style.display = 'none';
       btnPause.style.display = 'none';
       btnFinish.style.display = 'none';
@@ -1161,16 +1277,30 @@
       btnReset.textContent = '重新开始';
     } else {
       btnStart.style.display = 'inline-block';
-      btnStart.textContent = '开始专注';
+      btnStart.textContent = isCountdown ? '开始专注' : '开始正计时';
       btnPause.style.display = 'none';
       btnFinish.style.display = 'none';
       btnReset.style.display = 'none';
     }
 
+    // 预设按钮 active
     presetsContainer.querySelectorAll('button').forEach(function (b) {
-      b.classList.toggle('active', Number(b.dataset.min) * 60 === timer.total);
+      b.classList.toggle('active', isCountdown && Number(b.dataset.min) * 60 === timer.total);
     });
-    customInput.value = Math.round(timer.total / 60);
+    if (isCountdown) {
+      customInput.value = Math.round(timer.total / 60);
+    }
+
+    // 预设和自定义在正计时模式下隐藏
+    presetsContainer.style.display = isCountdown ? 'flex' : 'none';
+    timerCustomRow.style.display = isCountdown ? 'flex' : 'none';
+
+    // 模式切换按钮高亮
+    timerModeSwitch.querySelectorAll('button').forEach(function (b) {
+      var isActive = b.dataset.mode === timer.mode;
+      b.classList.toggle('active', isActive);
+      b.classList.toggle('stopwatch-mode', isActive && timer.mode === 'stopwatch');
+    });
   }
 
   function renderFocusTaskSelect() {
@@ -1197,19 +1327,27 @@
     if (!timer.running) return;
 
     var now = Date.now();
-    var diff = timer.endTime - now; // 剩余毫秒数
 
-    if (diff <= 0) {
-      timer.remaining = 0;
-      finishTimer(true);
-      return;
-    }
-
-    var newRemaining = Math.ceil(diff / 1000);
-    // 只有秒数发生变化时才更新 UI，节省性能
-    if (newRemaining !== timer.remaining) {
-      timer.remaining = newRemaining;
-      updateTimerUI();
+    if (timer.mode === 'countdown') {
+      var diff = timer.endTime - now;
+      if (diff <= 0) {
+        timer.remaining = 0;
+        finishTimer(true);
+        return;
+      }
+      var newRemaining = Math.ceil(diff / 1000);
+      if (newRemaining !== timer.remaining) {
+        timer.remaining = newRemaining;
+        updateTimerUI();
+      }
+    } else {
+      // 正计时：根据时间戳计算已过秒数
+      var elapsedMs = now - timer.startTime;
+      var newElapsed = Math.floor(elapsedMs / 1000);
+      if (newElapsed !== timer.elapsed) {
+        timer.elapsed = newElapsed;
+        updateTimerUI();
+      }
     }
   }
 
@@ -1223,7 +1361,12 @@
   function finishTimer(isNaturalEnd) {
     stopTimer();
 
-    var elapsedSec = timer.total - timer.remaining;
+    var elapsedSec;
+    if (timer.mode === 'countdown') {
+      elapsedSec = timer.total - timer.remaining;
+    } else {
+      elapsedSec = timer.elapsed;
+    }
     var elapsedMin = Math.floor(elapsedSec / 60);
 
     if (elapsedMin > 0) {
@@ -1264,24 +1407,35 @@
       }
     }
 
-    timer.remaining = timer.total;
+    // 重置计时器状态
+    if (timer.mode === 'countdown') {
+      timer.remaining = timer.total;
+    } else {
+      timer.elapsed = 0;
+    }
     timer.startedFocusTaskId = '';
     updateTimerUI();
   }
 
   function startTimer() {
     if (timer.running) return;
-    if (timer.remaining <= 0) timer.remaining = timer.total;
+
+    if (timer.mode === 'countdown' && timer.remaining <= 0) {
+      timer.remaining = timer.total;
+    }
 
     timer.startedFocusTaskId = state.focusTaskId;
-
     timer.running = true;
-    // 记录预期结束时间戳
-    timer.endTime = Date.now() + timer.remaining * 1000;
-    
-    // 清除旧的，启动新的定时器
+
+    if (timer.mode === 'countdown') {
+      timer.endTime = Date.now() + timer.remaining * 1000;
+    } else {
+      // 正计时：记录本轮开始时间，基于已累积时间校准
+      timer.startTime = Date.now() - timer.elapsed * 1000;
+    }
+
     if (timer.intervalId) clearInterval(timer.intervalId);
-    timer.intervalId = setInterval(tick, 250); // 使用 250ms 提高刷新精度，但实际以时间戳为准
+    timer.intervalId = setInterval(tick, 250);
     
     updateTimerUI();
     if (Notification && Notification.permission === 'default') {
@@ -1290,6 +1444,17 @@
   }
 
   function stopTimer() {
+    // 暂停前先校准一次
+    if (timer.running) {
+      if (timer.mode === 'countdown') {
+        var diff = timer.endTime - Date.now();
+        if (diff > 0) timer.remaining = Math.ceil(diff / 1000);
+      } else {
+        var elapsedMs = Date.now() - timer.startTime;
+        timer.elapsed = Math.floor(elapsedMs / 1000);
+      }
+    }
+
     timer.running = false;
     if (timer.intervalId) {
       clearInterval(timer.intervalId);
@@ -1300,7 +1465,11 @@
 
   function resetTimer() {
     stopTimer();
-    timer.remaining = timer.total;
+    if (timer.mode === 'countdown') {
+      timer.remaining = timer.total;
+    } else {
+      timer.elapsed = 0;
+    }
     timer.startedFocusTaskId = '';
     updateTimerUI();
   }
@@ -1315,6 +1484,23 @@
     updateTimerUI();
   }
 
+  function switchMode(mode) {
+    if (timer.running) {
+      if (!confirm('计时正在进行中，切换模式会结束当前计时（不记录时长）。确定吗？')) return;
+    }
+    stopTimer();
+    timer.mode = mode;
+    timer.startedFocusTaskId = '';
+
+    if (mode === 'countdown') {
+      timer.remaining = timer.total;
+      timer.elapsed = 0;
+    } else {
+      timer.elapsed = 0;
+    }
+    updateTimerUI();
+  }
+
   try {
     var savedMin = Number(localStorage.getItem(TIMER_KEY));
     if (savedMin >= 1 && savedMin <= 180) {
@@ -1324,39 +1510,40 @@
   } catch (e) {}
 
   btnStart.addEventListener('click', function () {
-    if (timer.remaining <= 0) timer.remaining = timer.total;
+    if (timer.mode === 'countdown' && timer.remaining <= 0) timer.remaining = timer.total;
     startTimer();
   });
   
   btnPause.addEventListener('click', function () {
-    // 暂停时，先校准一次剩余时间，防止在后台时被点暂停
-    var now = Date.now();
-    var diff = timer.endTime - now;
-    if (diff > 0) {
-      timer.remaining = Math.ceil(diff / 1000);
-    }
     stopTimer();
   });
   
   btnFinish.addEventListener('click', function () {
-    if (confirm('确定要提前结束本次专注并记录已有时间吗？')) {
-      // 提前结束前，也先校准一次
-      var now = Date.now();
-      var diff = timer.endTime - now;
-      if (diff > 0) {
-        timer.remaining = Math.ceil(diff / 1000);
-      }
+    var label = timer.mode === 'countdown' ? '提前结束倒计时' : '结束正计时';
+    if (confirm('确定要' + label + '并记录已有时间吗？')) {
       finishTimer(false);
     }
   });
 
   btnReset.addEventListener('click', function () {
-    if (timer.remaining === 0) {
+    if (timer.mode === 'countdown' && timer.remaining === 0) {
       timer.remaining = timer.total;
       updateTimerUI();
     } else {
       resetTimer();
     }
+  });
+
+  // 清空专注时长
+  document.getElementById('btn-clear-focus').addEventListener('click', clearFocusStats);
+
+  // 模式切换
+  timerModeSwitch.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-mode]');
+    if (!btn) return;
+    var mode = btn.dataset.mode;
+    if (mode === timer.mode) return;
+    switchMode(mode);
   });
 
   presetsContainer.addEventListener('click', function (e) {
