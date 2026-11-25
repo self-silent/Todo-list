@@ -1,5 +1,5 @@
 ## 一个小的代办网站
-[web](https://self-silent.github.io/Todo-list/)
+[![访问网站](https://img.shields.io/badge/👉点击这里-访问网页-skyblue)](https://self-silent.github.io/Todo-list/)
 
 这是一个作为我学习前端的小项目，可能会随时更新，会有一些新的功能。
 ### 用处
