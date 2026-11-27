@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的待办 + 专注时钟（正计时·清空）</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('todo-theme');
+    var dark = t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  } catch (e) {}
+})();
+</script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --input-bg: #ffffff;
+    --text: #1f2933;
+    --muted: #7b8794;
+    --line: #e4e8ee;
+    --brand: #2563eb;
+    --brand-dark: #1d4ed8;
+    --danger: #dc2626;
+    --hover: #e9edf2;
+    --chip: #e0e9fd;
+    --timer-bg: #f0f4ff;
+    --timer-track: #e4e8ee;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --stopwatch: #8b5cf6;
+  }
+  [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0f1419;
+    --card: #1a2129;
+    --input-bg: #141a20;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --line: #2b3540;
+    --brand: #3b82f6;
+    --brand-dark: #2563eb;
+    --danger: #f87171;
+    --hover: #232d38;
+    --chip: #1e3a5f;
+    --timer-bg: #1e2a3a;
+    --timer-track: #2b3540;
+    --success: #34d399;
+    --warning: #fbbf24;
+    --stopwatch: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 28px 16px 60px;
+    -webkit-font-smoothing: antialiased;
+    transition: background .2s, color .2s;
+  }
+  
+  .app { max-width: 1200px; margin: 0 auto; transition: max-width .3s; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  h1 {
+    font-size: 24px;
+    margin: 0;
+    letter-spacing: .5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: font-size .3s;
+  }
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    color: var(--brand);
+    transition: width .3s, height .3s;
+  }
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  #stats { font-size: 13px; color: var(--muted); margin-right: 4px; }
+
+  button {
+    font: inherit;
+    font-size: 14px;
+    border-radius: 8px;
+    border: none;
+    padding: 9px 11px;
+    background: var(--brand);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background .15s, color .15s;
+  }
+  button:hover { background: var(--brand-dark); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .ghost:hover { background: var(--hover); color: var(--text); }
+
+  input, select {
+    font: inherit;
+    font-size: 14px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    padding: 9px 11px;
+    background: var(--input-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  input:focus, select:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  }
+
+  /* ---------- 核心布局：左侧边栏 + 右侧主内容 ---------- */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ---------- 左侧边栏 ---------- */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    /* 在宽屏时吸顶固定 */
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+
+  /* 侧边栏通用区块 */
+  .sidebar-block {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+  }
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+  }
+  
+  .days-matter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .dm-card {
+    background: var(--hover);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative;
+    border-left: 4px solid var(--line);
+    transition: transform .2s, border-color .2s;
+  }
+  .dm-card:hover { transform: translateX(4px); }
+  .dm-card.future { border-left-color: var(--brand); }
+  .dm-card.today { border-left-color: var(--success); }
+  .dm-card.past { border-left-color: var(--muted); }
+
+  .dm-card .dm-title {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dm-card .dm-days {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .dm-card .dm-days.future { color: var(--brand); }
+  .dm-card .dm-days.past { color: var(--muted); }
+  .dm-card .dm-days.today { color: var(--success); }
+  .dm-card .dm-days span { font-size: 12px; font-weight: normal; margin-left: 4px; }
+  
+  .dm-delete {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .dm-card:hover .dm-delete { opacity: 1; }
+  .dm-delete:hover { color: var(--danger); }
+
+  .dm-empty {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  /* ---------- 修正后的统计面板（侧边栏内） ---------- */
+  .sidebar .stats-panel {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    overflow: hidden;
+    /* 取消 margin-top，让它自然排列 */
+    margin-top: 0;
+  }
+  
+  /* 修复：折叠按钮恢复成统一的标题风格 */
+  .sidebar .stats-toggle {
+    width: 100%;
+    text-align: left;
+    background: transparent; /* 去除蓝色背景 */
+    color: var(--text);
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0;
+    border-bottom: 1px solid transparent;
+    transition: background .2s, border-color .2s;
+  }
+  .sidebar .stats-toggle:hover { 
+    background: var(--hover); 
+  }
+  
+  .sidebar .stats-panel.open .stats-toggle {
+    border-bottom-color: var(--line);
+  }
+  
+  .sidebar .stats-toggle .arrow { 
+    transition: transform .2s; 
+    font-size: 12px; 
+    color: var(--muted); 
+  }
+  .sidebar .stats-panel.open .stats-toggle .arrow { 
+    transform: rotate(180deg); 
+  }
+
+  /* 展开后的统计数据网格 */
+  .sidebar .stats-grid {
+    display: none;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px 16px 16px 16px;
+  }
+  .sidebar .stats-panel.open .stats-grid { 
+    display: grid; 
+  }
+  
+  .stat-card {
+    background: var(--hover);
+    border-radius: 8px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .stat-card .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat-card.good .stat-value { color: var(--success); }
+  .stat-card.bad .stat-value { color: var(--danger); }
+  .stat-card.info .stat-value { color: var(--brand); }
+  .stat-card.purple .stat-value { color: var(--stopwatch); }
+
+  /* ---------- 右侧主内容区 ---------- */
+  .main-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 输入区 */
+  #form {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    background: var(--card);
+    padding: 12px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    transition: padding .3s, gap .3s;
+  }
+  #title { grid-column: 1 / -1; }
+  #add-btn { padding: 9px 18px; }
+
+  /* ---------- 专注时钟 ---------- */
+  .timer-section {
+    margin-top: 16px;
+    background: var(--timer-bg);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    border: 1px solid var(--line);
+    transition: background .2s, border-color .2s, padding .3s;
+  }
+
+  .timer-mode-switch {
+    display: flex;
+    gap: 6px;
+    background: var(--card);
+    border-radius: 999px;
+    padding: 4px;
+    border: 1px solid var(--line);
+  }
+  .timer-mode-switch button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 999px;
+    padding: 6px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all .2s;
+  }
+  .timer-mode-switch button:hover { color: var(--text); background: var(--hover); }
+  .timer-mode-switch button.active {
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(37,99,235,.25);
+  }
+  .timer-mode-switch button.active.stopwatch-mode {
+    background: var(--stopwatch);
+    box-shadow: 0 2px 6px rgba(139,92,246,.25);
+  }
+
+  .timer-ring-wrap {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width .3s, height .3s;
+  }
+  .timer-ring-wrap svg {
+    transform: rotate(-90deg);
+    width: 100%;
+    height: 100%;
+  }
+  .timer-ring-bg {
+    fill: none;
+    stroke: var(--timer-track);
+    stroke-width: 10;
+  }
+  .timer-ring-fg {
+    fill: none;
+    stroke: var(--brand);
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset .5s linear, stroke .3s;
+  }
+  .timer-ring-fg.finished { stroke: var(--danger); }
+  .timer-ring-fg.warning { stroke: var(--warning); }
+  .timer-ring-fg.stopwatch { stroke: var(--stopwatch); transition: stroke-dashoffset .2s linear; }
+  .timer-display {
+    position: absolute;
+    font-size: 40px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+    color: var(--text);
+    transition: color .3s, font-size .3s;
+  }
+  .timer-display.running { color: var(--brand); }
+  .timer-display.stopwatch-running { color: var(--stopwatch); }
+  .timer-display.finished {
+    color: var(--danger);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  .timer-presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+  }
+  .timer-presets button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: 13px;
+    padding: 6px 14px;
+    border-radius: 999px;
+  }
+  .timer-presets button:hover { background: var(--hover); color: var(--text); }
+  .timer-presets button.active {
+    background: var(--brand);
+    color: #fff;
+    border-color: var(--brand);
+  }
+  .timer-custom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .timer-custom input {
+    width: 64px;
+    padding: 6px 8px;
+    font-size: 13px;
+    text-align: center;
+  }
+  .timer-custom button {
+    font-size: 12px;
+    padding: 6px 12px;
+    background: var(--brand);
+  }
+
+  .timer-task-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    width: 100%;
+    justify-content: center;
+  }
+  .timer-task-select select {
+    max-width: 280px;
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .timer-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .timer-controls button {
+    min-width: 80px;
+    padding: 9px 20px;
+    font-size: 14px;
+  }
+  .timer-controls .btn-pause { background: var(--warning); color: #1f2933; }
+  .timer-controls .btn-pause:hover { background: #d97706; color: #fff; }
+  .timer-controls .btn-finish { background: var(--success); }
+  .timer-controls .btn-finish:hover { background: #059669; }
+  .timer-controls .btn-reset {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .timer-controls .btn-reset:hover { background: var(--hover); color: var(--text); }
+
+  .timer-clear-wrap {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 2px;
+  }
+  .timer-clear-wrap button {
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    padding: 5px 16px;
+    border-radius: 999px;
+  }
+  .timer-clear-wrap button:hover {
+    background: rgba(220, 38, 38, .1);
+    border-color: var(--danger);
+  }
+
+  /* 筛选栏 */
+  .filters {
+    display: flex;
+    gap: 6px;
+    margin: 16px 0 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .filters button {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .filters button:hover { color: var(--text); background: var(--hover); }
+  .filters button.active { background: var(--chip); color: var(--brand); }
+  #clear-done {
+    margin-left: auto;
+    color: var(--danger) !important;
+  }
+  #clear-done:hover { background: rgba(220, 38, 38, .1) !important; }
+
+  /* 任务列表 */
+  #list {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    overflow: hidden;
+  }
+  #list:empty { display: none; }
+
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--line);
+    transition: padding .3s;
+  }
+  .task:last-child { border-bottom: none; }
+  .task.done .task-title { color: var(--muted); text-decoration: line-through; }
+  .task.pinned { background: var(--chip); }
+  [data-theme="dark"] .task.pinned { background: #1a2a44; }
+
+  .task-check {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    cursor: pointer;
+    accent-color: var(--brand);
+  }
+  .task-main { flex: 1; min-width: 0; }
+  .task-title {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.4;
+    word-break: break-word;
+    cursor: text;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: font-size .3s;
+  }
+  .pin-icon { font-size: 12px; }
+  .task-due { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
+  .task-due.overdue { color: var(--danger); }
+  .task-focus {
+    margin: 3px 0 0;
+    font-size: 12px;
+    color: var(--brand);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .priority {
+    flex: 0 0 auto;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .priority.p1 { background: #eef1f5; color: #64748b; }
+  .priority.p2 { background: #fdf3d8; color: #a16207; }
+  .priority.p3 { background: #fde8e8; color: var(--danger); }
+  [data-theme="dark"] .priority.p1 { background: #2b3540; color: #9aa7b4; }
+  [data-theme="dark"] .priority.p2 { background: #3d3418; color: #e3b341; }
+  [data-theme="dark"] .priority.p3 { background: #3d1d1d; color: #f87171; }
+
+  .task-actions { display: flex; gap: 2px; flex: 0 0 auto; }
+  .icon-btn {
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 4px 7px;
+  }
+  .icon-btn:hover { background: var(--hover); color: var(--text); }
+  .icon-btn.danger:hover { background: rgba(220, 38, 38, .12); color: var(--danger); }
+  .icon-btn.pin.active { color: var(--brand); }
+
+  /* 行内编辑 */
+  .task.editing {
+    display: grid;
+    grid-template-columns: 1fr auto auto auto;
+    gap: 8px;
+    background: var(--hover);
+  }
+  .task.editing .edit-title { grid-column: 1 / -1; }
+  .task.editing .edit-due { min-width: 0; }
+  .btn-save { font-size: 13px; padding: 8px 14px; }
+  .btn-cancel {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+  .btn-cancel:hover { background: var(--card); color: var(--text); }
+
+  /* 空状态 */
+  #empty {
+    display: none;
+    text-align: center;
+    padding: 44px 16px;
+    color: var(--muted);
+    font-size: 14px;
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+  }
+
+  /* ----- 响应式调整 ----- */
+  
+  /* 小屏幕（手机）：单列堆叠 */
+  @media (max-width: 900px) {
+    .main-layout {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      position: static;
+      max-height: none;
+    }
+    .days-matter-list {
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .dm-card {
+      flex: 0 0 auto;
+      min-width: 120px;
+    }
+    /* 小屏幕时，统计面板恢复 3 列 */
+    .sidebar .stats-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 560px) {
+    #form { grid-template-columns: 1fr 1fr; }
+    #title { grid-column: 1 / -1; }
+    #add-btn { grid-column: 1 / -1; }
+    h1 { font-size: 21px; }
+    .header-right { width: 100%; }
+    #stats { flex: 1 1 100%; }
+    .timer-display { font-size: 34px; }
+    .timer-ring-wrap { width: 170px; height: 170px; }
+    /* 再小一点，统计面板改回 2 列 */
+    .sidebar .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* 全屏宽屏自适应放大 */
+  @media (min-width: 1024px) {
+    .app { max-width: 1200px; margin-top: 30px; }
+    
+    .main-layout {
+      grid-template-columns: 300px 1fr; /* 左侧 300px，右侧自适应 */
+      gap: 24px;
+    }
+    
+    h1 { font-size: 30px; }
+    .logo-icon { width: 38px; height: 38px; }
+    
+    #form { padding: 16px; gap: 10px; }
+    #title { font-size: 16px; padding: 12px 14px; }
+    #add-btn { padding: 12px 24px; font-size: 15px; }
+    
+    .sidebar-block, .sidebar .stats-panel { padding: 20px; }
+    .sidebar-header, .sidebar .stats-toggle { font-size: 16px; }
+    .dm-card { padding: 16px; }
+    .dm-card .dm-title { font-size: 14px; }
+    .dm-card .dm-days { font-size: 26px; }
+    
+    .timer-section { padding: 30px; gap: 20px; }
+    .timer-ring-wrap { width: 260px; height: 260px; }
+    .timer-display { font-size: 56px; }
+    
+    .timer-mode-switch button { padding: 8px 28px; font-size: 15px; }
+    .timer-presets button { padding: 8px 18px; font-size: 14px; }
+    .timer-custom input { width: 80px; padding: 8px; font-size: 14px; }
+    .timer-custom button { padding: 8px 16px; font-size: 14px; }
+    .timer-controls button { padding: 12px 28px; font-size: 16px; }
+    
+    .task { padding: 16px 20px; }
+    .task-title { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>
+      <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="10" y="5" width="44" height="6" rx="3" fill="currentColor"/>
+      <rect x="10" y="53" width="44" height="6" rx="3" fill="currentColor"/>
+      <path d="M18 11 L46 11 L34 32 L46 53 L18 53 L30 32 Z"
+            fill="none" stroke="currentColor" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M23 16 L41 16 L35 26 L29 26 Z" fill="#fcd34d" opacity="0.75"/>
+      <path d="M22 48 L42 48 L34 40 L30 40 Z" fill="#fcd34d" opacity="0.95"/>
+      <rect x="30" y="30" width="4" height="8" rx="2" fill="#fcd34d"/>
+    </svg>
+    我的待办
+  </h1>
+    <div class="header-right">
+      <span id="stats">还没有任务</span>
+      <button type="button" id="export-btn" class="ghost" title="把任务导出为 JSON 文件">导出备份</button>
+      <button type="button" id="import-btn" class="ghost" title="从 JSON 文件恢复任务">导入备份</button>
+      <button type="button" id="theme-btn" class="ghost">🌙 深色</button>
+    </div>
+  </header>
+
+  <input type="file" id="import-file" accept="application/json,.json" hidden>
+
+  <!-- 核心布局：左侧边栏，右侧主内容 -->
+  <div class="main-layout">
+    
+    <!-- 左侧边栏 -->
+    <aside class="sidebar">
+      
+      <!-- 倒数日板块 -->
+      <div class="sidebar-block">
+        <div class="sidebar-header">
+          <span>⏳ Days Matter</span>
+          <button type="button" id="add-dm-btn" class="ghost" style="padding: 4px 8px; font-size: 12px;">+ 添加</button>
+        </div>
+        <div class="days-matter-list" id="dm-list">
+          <!-- 动态生成的卡片会放在这里 -->
+        </div>
+      </div>
+
+      <!-- 数据统计板块（已移至侧边栏） -->
+      <div class="stats-panel" id="stats-panel">
+        <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
+          <span>📊 数据统计</span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card info">
+            <div class="stat-value" id="st-total">0</div>
+            <div class="stat-label">总任务</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-left">0</div>
+            <div class="stat-label">未完成</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-done">0</div>
+            <div class="stat-label">已完成</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-today">0</div>
+            <div class="stat-label">今日到期</div>
+          </div>
+          <div class="stat-card bad">
+            <div class="stat-value" id="st-overdue">0</div>
+            <div class="stat-label">已逾期</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-focus-count">0</div>
+            <div class="stat-label">总专注次数</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-focus-min">0</div>
+            <div class="stat-label">总专注时长(分)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-standalone-focus">0</div>
+            <div class="stat-label">独立专注(分)</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- 右侧主内容区 -->
+    <main class="main-content">
+      
+      <form id="form" autocomplete="off">
+        <input id="title" type="text" placeholder="要做什么？按回车添加" maxlength="200">
+        <input id="due" type="date" title="截止日期（可选）">
+        <select id="priority" title="优先级">
+          <option value="1">低</option>
+          <option value="2">中</option>
+          <option value="3">高</option>
+        </select>
+        <button type="submit" id="add-btn">添加</button>
+      </form>
+
+      <!-- 专注时钟 -->
+      <div class="timer-section">
+        <!-- 模式切换 -->
+        <div class="timer-mode-switch" id="timer-mode-switch">
+          <button type="button" data-mode="countdown" class="active">⏳ 倒计时</button>
+          <button type="button" data-mode="stopwatch">⏱️ 正计时</button>
+        </div>
+
+        <div class="timer-ring-wrap">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="timer-ring-bg" cx="50" cy="50" r="45"></circle>
+            <circle class="timer-ring-fg" id="timer-ring-fg" cx="50" cy="50" r="45"
+                    stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="timer-display" id="timer-display">25:00</div>
+        </div>
+
+        <div class="timer-task-select">
+          <label for="focus-task">当前专注：</label>
+          <select id="focus-task">
+            <option value="">（不关联任务，仅记录总时长）</option>
+          </select>
+        </div>
+
+        <!-- 倒计时预设，正计时时隐藏 -->
+        <div class="timer-presets" id="timer-presets">
+          <button type="button" data-min="25" class="active">25 分钟</button>
+          <button type="button" data-min="45">45 分钟</button>
+          <button type="button" data-min="60">60 分钟</button>
+        </div>
+
+        <div class="timer-custom" id="timer-custom-row">
+          <label for="custom-min">自定义</label>
+          <input type="number" id="custom-min" min="1" max="180" value="25" step="1">
+          <span>分钟</span>
+          <button type="button" id="btn-apply-custom">应用</button>
+        </div>
+
+        <div class="timer-controls">
+          <button type="button" id="btn-start" class="btn-start">开始专注</button>
+          <button type="button" id="btn-pause" class="btn-pause" style="display:none;">暂停</button>
+          <button type="button" id="btn-finish" class="btn-finish" style="display:none;">完成并记录</button>
+          <button type="button" id="btn-reset" class="btn-reset" style="display:none;">重置</button>
+        </div>
+
+        <!-- 清空专注时长 -->
+        <div class="timer-clear-wrap">
+          <button type="button" id="btn-clear-focus">🧹 清空专注时长统计</button>
+        </div>
+      </div>
+
+      <div class="filters">
+        <button type="button" data-filter="all">全部</button>
+        <button type="button" data-filter="today">今天</button>
+        <button type="button" data-filter="done">已完成</button>
+        <button type="button" id="clear-done">清除已完成</button>
+      </div>
+
+      <div id="list"></div>
+      <div id="empty">暂无任务</div>
+      
+    </main>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var STORAGE_KEY = 'todo-web-v1';
+  var THEME_KEY = 'todo-theme';
+  var TIMER_KEY = 'todo-timer-min';
+  var GLOBAL_FOCUS_KEY = 'todo-global-focus';
+  var DM_STORAGE_KEY = 'todo-days-matter';
+
+  var state = {
+    tasks: [],
+    filter: 'all',
+    editingId: null,
+    focusTaskId: '',
+    globalFocus: {
+      count: 0,
+      minutes: 0,
+      standaloneMinutes: 0
+    }
+  };
+
+  var PRIORITY_LABEL = { 1: '低', 2: '中', 3: '高' };
+
+  // ---------- 工具 ----------
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function isValidDate(s) {
+    return typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  }
+
+  // ---------- 存储 ----------
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var data = raw ? JSON.parse(raw) : [];
+      state.tasks = Array.isArray(data) ? data.map(normalize) : [];
+
+      var rawGlobal = localStorage.getItem(GLOBAL_FOCUS_KEY);
+      if (rawGlobal) {
+        var g = JSON.parse(rawGlobal);
+        state.globalFocus = {
+          count: Number(g.count) || 0,
+          minutes: Number(g.minutes) || 0,
+          standaloneMinutes: Number(g.standaloneMinutes) || 0
+        };
+      }
+    } catch (e) {
+      state.tasks = [];
+    }
+  }
+  function normalize(t) {
+    return {
+      id: String(t && t.id ? t.id : uid()),
+      title: String((t && t.title) || '').slice(0, 200),
+      due: isValidDate(t && t.due) ? t.due : null,
+      priority: [1, 2, 3].indexOf(Number(t && t.priority)) >= 0 ? Number(t.priority) : 1,
+      done: !!(t && t.done),
+      pinned: !!(t && t.pinned),
+      focusCount: Number(t && t.focusCount) || 0,
+      focusMinutes: Number(t && t.focusMinutes) || 0,
+      createdAt: Number(t && t.createdAt) || Date.now(),
+      updatedAt: Number(t && t.updatedAt) || Date.now()
+    };
+  }
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.tasks));
+      localStorage.setItem(GLOBAL_FOCUS_KEY, JSON.stringify(state.globalFocus));
+    } catch (e) {
+      alert('保存失败：浏览器存储空间可能已满或被禁用。建议先导出备份。');
+    }
+  }
+
+  // ---------- 数据操作 ----------
+  function addTask(title, due, priority) {
+    var now = Date.now();
+    state.tasks.push({
+      id: uid(),
+      title: title,
+      due: due || null,
+      priority: Number(priority) || 1,
+      done: false,
+      pinned: false,
+      focusCount: 0,
+      focusMinutes: 0,
+      createdAt: now,
+      updatedAt: now
+    });
+    save();
+    render();
+  }
+  function toggleTask(id) {
+    var t = state.tasks.find(function (x) { return x.id === id; });
+    if (!t) return;
+    t.done = !t.done;
+    t.updatedAt = Date.now();
+    save();
+    render();
+  }
+  function togglePin(id) {
+    var t = state.tasks.find(function (x) { return x.id === id; });
+    if (!t) return;
+    t.pinned = !t.pinned;
+    t.updatedAt = Date.now();
+    save();
+    render();
+  }
+  function deleteTask(id) {
+    state.tasks = state.tasks.filter(function (x) { return x.id !== id; });
+    if (state.editingId === id) state.editingId = null;
+    if (state.focusTaskId === id) state.focusTaskId = '';
+    save();
+    render();
+    renderFocusTaskSelect();
+  }
+  function updateTask(id, patch) {
+    var t = state.tasks.find(function (x) { return x.id === id; });
+    if (!t) return;
+    Object.keys(patch).forEach(function (k) { t[k] = patch[k]; });
+    t.updatedAt = Date.now();
+    state.editingId = null;
+    save();
+    render();
+    renderFocusTaskSelect();
+  }
+  function clearDone() {
+    var n = state.tasks.filter(function (t) { return t.done; }).length;
+    if (!n) return;
+    if (!confirm('确定删除 ' + n + ' 项已完成任务？')) return;
+    state.tasks = state.tasks.filter(function (t) { return !t.done; });
+    if (state.focusTaskId && !state.tasks.some(function(t){return t.id === state.focusTaskId;})) {
+      state.focusTaskId = '';
+    }
+    save();
+    render();
+    renderFocusTaskSelect();
+  }
+  function addFocusRecord(taskId, minutes) {
+    if (minutes <= 0) return;
+    
+    state.globalFocus.count += 1;
+    state.globalFocus.minutes += minutes;
+    
+    if (taskId) {
+      var t = state.tasks.find(function (x) { return x.id === taskId; });
+      if (t) {
+        t.focusCount = (t.focusCount || 0) + 1;
+        t.focusMinutes = (t.focusMinutes || 0) + minutes;
+        t.updatedAt = Date.now();
+      }
+    } else {
+      state.globalFocus.standaloneMinutes += minutes;
+    }
+
+    save();
+    render();
+    renderStats();
+  }
+
+  // 清空专注时长统计
+  function clearFocusStats() {
+    if (!confirm('确定清空所有专注时长统计吗？\n\n• 总专注次数、总专注时长、独立专注时长将归零\n• 各任务上的专注记录也会被清除\n\n任务本身和完成状态不会受影响。')) return;
+
+    state.globalFocus.count = 0;
+    state.globalFocus.minutes = 0;
+    state.globalFocus.standaloneMinutes = 0;
+
+    state.tasks.forEach(function (t) {
+      t.focusCount = 0;
+      t.focusMinutes = 0;
+    });
+
+    save();
+    render();
+    renderStats();
+    alert('专注时长统计已清空，可以开始新的一天啦 ☀️');
+  }
+
+  // ---------- 筛选与排序 ----------
+  function visibleTasks() {
+    var today = todayStr();
+    if (state.filter === 'today') {
+      return state.tasks.filter(function (t) { return !t.done && t.due === today; });
+    }
+    if (state.filter === 'done') {
+      return state.tasks.filter(function (t) { return t.done; });
+    }
+    return state.tasks.slice();
+  }
+  function sortTasks(list) {
+    return list.sort(function (a, b) {
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+      if (a.due && !b.due) return -1;
+      if (!a.due && b.due) return 1;
+      return b.createdAt - a.createdAt;
+    });
+  }
+
+  // ---------- 渲染 ----------
+  function createTaskEl(task) {
+    var row = document.createElement('div');
+    row.className = 'task' + (task.done ? ' done' : '') + (task.pinned ? ' pinned' : '');
+    row.dataset.id = task.id;
+
+    var check = document.createElement('input');
+    check.type = 'checkbox';
+    check.className = 'task-check';
+    check.checked = task.done;
+
+    var main = document.createElement('div');
+    main.className = 'task-main';
+
+    var title = document.createElement('p');
+    title.className = 'task-title';
+    if (task.pinned) {
+      var pinIcon = document.createElement('span');
+      pinIcon.className = 'pin-icon';
+      pinIcon.textContent = '📌';
+      title.appendChild(pinIcon);
+    }
+    var titleText = document.createElement('span');
+    titleText.textContent = task.title;
+    title.appendChild(titleText);
+    title.title = '点击编辑';
+    main.appendChild(title);
+
+    if (task.due) {
+      var due = document.createElement('p');
+      due.className = 'task-due';
+      var overdue = !task.done && task.due < todayStr();
+      due.textContent = (overdue ? '已逾期：' : '截止：') + task.due;
+      if (overdue) due.classList.add('overdue');
+      main.appendChild(due);
+    }
+
+    if (task.focusMinutes > 0) {
+      var focus = document.createElement('p');
+      focus.className = 'task-focus';
+      focus.textContent = '⏱ 已专注 ' + task.focusMinutes + ' 分钟 · ' + task.focusCount + ' 次';
+      main.appendChild(focus);
+    }
+
+    var pri = document.createElement('span');
+    pri.className = 'priority p' + task.priority;
+    pri.textContent = PRIORITY_LABEL[task.priority] || '低';
+
+    var actions = document.createElement('div');
+    actions.className = 'task-actions';
+
+    var pin = document.createElement('button');
+    pin.type = 'button';
+    pin.className = 'icon-btn pin' + (task.pinned ? ' active' : '');
+    pin.dataset.action = 'pin';
+    pin.textContent = task.pinned ? '已置顶' : '置顶';
+
+    var edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'icon-btn';
+    edit.dataset.action = 'edit';
+    edit.textContent = '编辑';
+
+    var del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'icon-btn danger';
+    del.dataset.action = 'delete';
+    del.textContent = '删除';
+
+    actions.appendChild(pin);
+    actions.appendChild(edit);
+    actions.appendChild(del);
+
+    row.appendChild(check);
+    row.appendChild(main);
+    row.appendChild(pri);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function createEditEl(task) {
+    var row = document.createElement('div');
+    row.className = 'task editing';
+    row.dataset.id = task.id;
+
+    var title = document.createElement('input');
+    title.type = 'text';
+    title.className = 'edit-title';
+    title.maxLength = 200;
+    title.value = task.title;
+
+    var due = document.createElement('input');
+    due.type = 'date';
+    due.className = 'edit-due';
+    due.value = task.due || '';
+
+    var pri = document.createElement('select');
+    pri.className = 'edit-pri';
+    [['1', '低'], ['2', '中'], ['3', '高']].forEach(function (pair) {
+      var o = document.createElement('option');
+      o.value = pair[0];
+      o.textContent = pair[1];
+      pri.appendChild(o);
+    });
+    pri.value = String(task.priority);
+
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'btn-save';
+    saveBtn.dataset.action = 'save';
+    saveBtn.textContent = '保存';
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn-cancel';
+    cancelBtn.dataset.action = 'cancel-edit';
+    cancelBtn.textContent = '取消';
+
+    row.appendChild(title);
+    row.appendChild(due);
+    row.appendChild(pri);
+    row.appendChild(saveBtn);
+    row.appendChild(cancelBtn);
+    return row;
+  }
+
+  function emptyText() {
+    if (state.filter === 'today') return '今天没有待办任务 🎉';
+    if (state.filter === 'done') return '还没有已完成的任务';
+    return '暂无任务，先添加一条吧';
+  }
+
+  function render() {
+    var list = document.getElementById('list');
+    var empty = document.getElementById('empty');
+    var items = sortTasks(visibleTasks());
+
+    list.innerHTML = '';
+    items.forEach(function (t) {
+      list.appendChild(t.id === state.editingId ? createEditEl(t) : createTaskEl(t));
+    });
+
+    empty.textContent = emptyText();
+    empty.style.display = items.length ? 'none' : 'block';
+
+    var total = state.tasks.length;
+    var left = state.tasks.filter(function (t) { return !t.done; }).length;
+    document.getElementById('stats').textContent =
+      total === 0 ? '还没有任务'
+      : left === 0 ? '共 ' + total + ' 项 · 全部完成 🎉'
+      : '共 ' + total + ' 项 · 未完成 ' + left + ' 项';
+
+    document.querySelectorAll('[data-filter]').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.filter === state.filter);
+    });
+
+    document.getElementById('clear-done').style.display =
+      state.tasks.some(function (t) { return t.done; }) ? 'inline-block' : 'none';
+
+    if (state.editingId) {
+      requestAnimationFrame(function () {
+        var el = list.querySelector('.task.editing .edit-title');
+        if (el) {
+          el.focus();
+          el.setSelectionRange(el.value.length, el.value.length);
+        }
+      });
+    }
+
+    renderStats();
+  }
+
+  // ---------- 统计面板渲染 ----------
+  function renderStats() {
+    var total = state.tasks.length;
+    var done = state.tasks.filter(function (t) { return t.done; }).length;
+    var left = total - done;
+    var today = todayStr();
+    var todayCount = state.tasks.filter(function (t) { return !t.done && t.due === today; }).length;
+    var overdue = state.tasks.filter(function (t) { return !t.done && t.due && t.due < today; }).length;
+    
+    document.getElementById('st-total').textContent = total;
+    document.getElementById('st-left').textContent = left;
+    document.getElementById('st-done').textContent = done;
+    document.getElementById('st-today').textContent = todayCount;
+    document.getElementById('st-overdue').textContent = overdue;
+    
+    document.getElementById('st-focus-count').textContent = state.globalFocus.count;
+    document.getElementById('st-focus-min').textContent = state.globalFocus.minutes;
+    document.getElementById('st-standalone-focus').textContent = state.globalFocus.standaloneMinutes;
+  }
+
+  // ---------- 编辑保存 ----------
+  function handleSave(row) {
+    if (!row) return;
+    var id = row.dataset.id;
+    var titleEl = row.querySelector('.edit-title');
+    var title = titleEl ? titleEl.value.trim() : '';
+    if (!title) {
+      alert('任务标题不能为空');
+      if (titleEl) titleEl.focus();
+      return;
+    }
+    var dueEl = row.querySelector('.edit-due');
+    var priEl = row.querySelector('.edit-pri');
+    updateTask(id, {
+      title: title,
+      due: dueEl && dueEl.value ? dueEl.value : null,
+      priority: Number(priEl && priEl.value) || 1
+    });
+  }
+
+  // ---------- 导入 / 导出 ----------
+  function exportJSON() {
+    var payload = {
+      app: 'todo-web',
+      version: 3,
+      exportedAt: new Date().toISOString(),
+      tasks: state.tasks,
+      globalFocus: state.globalFocus
+    };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'todo-backup-' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function importJSON(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        var parsed = JSON.parse(reader.result);
+        var arr = Array.isArray(parsed) ? parsed : (parsed && parsed.tasks);
+        if (!Array.isArray(arr)) throw new Error('文件里找不到任务列表');
+
+        var seen = {};
+        var cleaned = [];
+        arr.forEach(function (t) {
+          if (!t || typeof t.title !== 'string' || !t.title.trim()) return;
+          var item = normalize(t);
+          if (seen[item.id]) item.id = uid();
+          seen[item.id] = true;
+          cleaned.push(item);
+        });
+
+        if (!cleaned.length) throw new Error('没有有效的任务');
+
+        if (!confirm('将用备份中的 ' + cleaned.length + ' 项任务覆盖当前 ' +
+          state.tasks.length + ' 项任务，确定吗？\n\n建议先点“导出备份”保存当前数据。')) return;
+
+        state.tasks = cleaned;
+        
+        if (parsed && parsed.globalFocus) {
+          state.globalFocus = {
+            count: Number(parsed.globalFocus.count) || 0,
+            minutes: Number(parsed.globalFocus.minutes) || 0,
+            standaloneMinutes: Number(parsed.globalFocus.standaloneMinutes) || 0
+          };
+        } else {
+          state.globalFocus = { count: 0, minutes: 0, standaloneMinutes: 0 };
+        }
+
+        state.editingId = null;
+        state.focusTaskId = '';
+        save();
+        render();
+        renderFocusTaskSelect();
+        alert('导入成功，共 ' + cleaned.length + ' 项任务');
+      } catch (e) {
+        alert('导入失败：' + e.message);
+      }
+    };
+    reader.onerror = function () { alert('读取文件失败'); };
+    reader.readAsText(file);
+  }
+
+  // ---------- 主题 ----------
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  }
+  function applyThemeButton() {
+    document.getElementById('theme-btn').textContent =
+      currentTheme() === 'dark' ? '☀️ 浅色' : '🌙 深色';
+  }
+  function toggleTheme() {
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) {}
+    applyThemeButton();
+  }
+
+  // ---------- 专注时钟（支持倒计时 + 正计时） ----------
+  var DEFAULT_MIN = 25;
+  var RING_CIRCUM = 2 * Math.PI * 45; 
+  var timer = {
+    mode: 'countdown',        // 'countdown' 或 'stopwatch'
+    total: DEFAULT_MIN * 60,  // 倒计时总秒数（正计时时无意义）
+    remaining: DEFAULT_MIN * 60, // 倒计时剩余秒数
+    elapsed: 0,               // 正计时已过秒数
+    intervalId: null,
+    running: false,
+    startedFocusTaskId: '',
+    startTime: 0,             // 本轮开始的时间戳（用于正计时校准）
+    endTime: 0                // 倒计时预期结束时间戳
+  };
+
+  var timerDisplay = document.getElementById('timer-display');
+  var timerRing = document.getElementById('timer-ring-fg');
+  var btnStart = document.getElementById('btn-start');
+  var btnPause = document.getElementById('btn-pause');
+  var btnFinish = document.getElementById('btn-finish');
+  var btnReset = document.getElementById('btn-reset');
+  var presetsContainer = document.getElementById('timer-presets');
+  var customInput = document.getElementById('custom-min');
+  var btnApplyCustom = document.getElementById('btn-apply-custom');
+  var focusTaskSelect = document.getElementById('focus-task');
+  var timerModeSwitch = document.getElementById('timer-mode-switch');
+  var timerCustomRow = document.getElementById('timer-custom-row');
+
+  timerRing.style.strokeDasharray = RING_CIRCUM.toFixed(2);
+
+  function formatTime(seconds) {
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  // 根据当前模式更新 UI
+  function updateTimerUI() {
+    var isCountdown = timer.mode === 'countdown';
+    var displaySeconds;
+    var pct;
+    var isFinished = false;
+    var isWarning = false;
+
+    if (isCountdown) {
+      displaySeconds = timer.remaining;
+      isFinished = timer.remaining === 0;
+      isWarning = !isFinished && timer.remaining <= 60;
+      pct = timer.total > 0 ? timer.remaining / timer.total : 0;
+    } else {
+      displaySeconds = timer.elapsed;
+      pct = timer.elapsed > 0 ? Math.min((timer.elapsed % 3600) / 3600, 1) : 0;
+    }
+
+    timerDisplay.textContent = formatTime(displaySeconds);
+
+    // 进度环
+    if (isCountdown) {
+      var offset = RING_CIRCUM * (1 - pct);
+      timerRing.style.strokeDashoffset = offset.toFixed(2);
+    } else {
+      // 正计时：环从 0 走到 1，每满 60 分钟归零（视觉上循环）
+      var stopwatchPct = timer.elapsed > 0 ? (timer.elapsed % 3600) / 3600 : 0;
+      var offset2 = RING_CIRCUM * (1 - stopwatchPct);
+      timerRing.style.strokeDashoffset = offset2.toFixed(2);
+    }
+
+    // class 切换
+    timerDisplay.classList.toggle('running', timer.running && isCountdown);
+    timerDisplay.classList.toggle('stopwatch-running', timer.running && !isCountdown);
+    timerDisplay.classList.toggle('finished', isCountdown && isFinished);
+    timerRing.classList.toggle('finished', isCountdown && isFinished);
+    timerRing.classList.toggle('warning', isCountdown && isWarning);
+    timerRing.classList.toggle('stopwatch', !isCountdown);
+
+    // 按钮显示
+    if (timer.running) {
+      btnStart.style.display = 'none';
+      btnPause.style.display = 'inline-block';
+      btnFinish.style.display = 'inline-block';
+      btnReset.style.display = 'inline-block';
+      btnPause.textContent = '暂停';
+    } else if (!isCountdown && timer.elapsed > 0) {
+      // 正计时暂停中
+      btnStart.style.display = 'inline-block';
+      btnStart.textContent = '继续';
+      btnPause.style.display = 'none';
+      btnFinish.style.display = 'inline-block';
+      btnReset.style.display = 'inline-block';
+    } else if (isCountdown && timer.remaining < timer.total && timer.remaining > 0) {
+      btnStart.style.display = 'inline-block';
+      btnStart.textContent = '继续专注';
+      btnPause.style.display = 'none';
+      btnFinish.style.display = 'inline-block';
+      btnReset.style.display = 'inline-block';
+    } else if (isCountdown && isFinished) {
+      btnStart.style.display = 'none';
+      btnPause.style.display = 'none';
+      btnFinish.style.display = 'none';
+      btnReset.style.display = 'inline-block';
+      btnReset.textContent = '重新开始';
+    } else {
+      btnStart.style.display = 'inline-block';
+      btnStart.textContent = isCountdown ? '开始专注' : '开始正计时';
+      btnPause.style.display = 'none';
+      btnFinish.style.display = 'none';
+      btnReset.style.display = 'none';
+    }
+
+    // 预设按钮 active
+    presetsContainer.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('active', isCountdown && Number(b.dataset.min) * 60 === timer.total);
+    });
+    if (isCountdown) {
+      customInput.value = Math.round(timer.total / 60);
+    }
+
+    // 预设和自定义在正计时模式下隐藏
+    presetsContainer.style.display = isCountdown ? 'flex' : 'none';
+    timerCustomRow.style.display = isCountdown ? 'flex' : 'none';
+
+    // 模式切换按钮高亮
+    timerModeSwitch.querySelectorAll('button').forEach(function (b) {
+      var isActive = b.dataset.mode === timer.mode;
+      b.classList.toggle('active', isActive);
+      b.classList.toggle('stopwatch-mode', isActive && timer.mode === 'stopwatch');
+    });
+  }
+
+  function renderFocusTaskSelect() {
+    var current = state.focusTaskId;
+    var options = ['<option value="">（不关联任务，仅记录总时长）</option>'];
+    state.tasks.filter(function (t) { return !t.done; }).forEach(function (t) {
+      var selected = t.id === current ? ' selected' : '';
+      var safeTitle = t.title.replace(/[<>&"]/g, function (c) {
+        return { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c];
+      });
+      options.push('<option value="' + t.id + '"' + selected + '>' + safeTitle + '</option>');
+    });
+    focusTaskSelect.innerHTML = options.join('');
+    if (current && !state.tasks.some(function (t) { return t.id === current; })) {
+      state.focusTaskId = '';
+      focusTaskSelect.value = '';
+    } else {
+      focusTaskSelect.value = current;
+    }
+  }
+
+  // 核心计时循环
+  function tick() {
+    if (!timer.running) return;
+
+    var now = Date.now();
+
+    if (timer.mode === 'countdown') {
+      var diff = timer.endTime - now;
+      if (diff <= 0) {
+        timer.remaining = 0;
+        finishTimer(true);
+        return;
+      }
+      var newRemaining = Math.ceil(diff / 1000);
+      if (newRemaining !== timer.remaining) {
+        timer.remaining = newRemaining;
+        updateTimerUI();
+      }
+    } else {
+      // 正计时：根据时间戳计算已过秒数
+      var elapsedMs = now - timer.startTime;
+      var newElapsed = Math.floor(elapsedMs / 1000);
+      if (newElapsed !== timer.elapsed) {
+        timer.elapsed = newElapsed;
+        updateTimerUI();
+      }
+    }
+  }
+
+  // 页面从后台恢复时，立刻校准一次时间
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && timer.running) {
+      tick();
+    }
+  });
+
+  function finishTimer(isNaturalEnd) {
+    stopTimer();
+
+    var elapsedSec;
+    if (timer.mode === 'countdown') {
+      elapsedSec = timer.total - timer.remaining;
+    } else {
+      elapsedSec = timer.elapsed;
+    }
+    var elapsedMin = Math.floor(elapsedSec / 60);
+
+    if (elapsedMin > 0) {
+      addFocusRecord(timer.startedFocusTaskId, elapsedMin);
+      
+      var ft = timer.startedFocusTaskId 
+        ? state.tasks.find(function (t) { return t.id === timer.startedFocusTaskId; }) 
+        : null;
+      
+      var msg = '已记录 ' + elapsedMin + ' 分钟专注时长' + 
+        (ft ? '到任务「' + ft.title + '」。' : '到总时长。');
+      
+      if (isNaturalEnd) {
+        try {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)();
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.3, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
+          osc.start();
+          osc.stop(ctx.currentTime + 1.2);
+        } catch (e) {}
+
+        if (Notification && Notification.permission === 'granted') {
+          new Notification('专注结束！', { body: msg });
+        } else {
+          alert('专注结束！\n' + msg);
+        }
+      } else {
+        alert(msg);
+      }
+    } else {
+      if (!isNaturalEnd) {
+        alert('已结束专注，但不足 1 分钟，本次未记录时长。');
+      }
+    }
+
+    // 重置计时器状态
+    if (timer.mode === 'countdown') {
+      timer.remaining = timer.total;
+    } else {
+      timer.elapsed = 0;
+    }
+    timer.startedFocusTaskId = '';
+    updateTimerUI();
+  }
+
+  function startTimer() {
+    if (timer.running) return;
+
+    if (timer.mode === 'countdown' && timer.remaining <= 0) {
+      timer.remaining = timer.total;
+    }
+
+    timer.startedFocusTaskId = state.focusTaskId;
+    timer.running = true;
+
+    if (timer.mode === 'countdown') {
+      timer.endTime = Date.now() + timer.remaining * 1000;
+    } else {
+      // 正计时：记录本轮开始时间，基于已累积时间校准
+      timer.startTime = Date.now() - timer.elapsed * 1000;
+    }
+
+    if (timer.intervalId) clearInterval(timer.intervalId);
+    timer.intervalId = setInterval(tick, 250);
+    
+    updateTimerUI();
+    if (Notification && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }
+
+  function stopTimer() {
+    // 暂停前先校准一次
+    if (timer.running) {
+      if (timer.mode === 'countdown') {
+        var diff = timer.endTime - Date.now();
+        if (diff > 0) timer.remaining = Math.ceil(diff / 1000);
+      } else {
+        var elapsedMs = Date.now() - timer.startTime;
+        timer.elapsed = Math.floor(elapsedMs / 1000);
+      }
+    }
+
+    timer.running = false;
+    if (timer.intervalId) {
+      clearInterval(timer.intervalId);
+      timer.intervalId = null;
+    }
+    updateTimerUI();
+  }
+
+  function resetTimer() {
+    stopTimer();
+    if (timer.mode === 'countdown') {
+      timer.remaining = timer.total;
+    } else {
+      timer.elapsed = 0;
+    }
+    timer.startedFocusTaskId = '';
+    updateTimerUI();
+  }
+
+  function setDuration(minutes) {
+    var m = Math.min(180, Math.max(1, Math.floor(Number(minutes) || DEFAULT_MIN)));
+    stopTimer();
+    timer.total = m * 60;
+    timer.remaining = timer.total;
+    timer.startedFocusTaskId = '';
+    try { localStorage.setItem(TIMER_KEY, String(m)); } catch (e) {}
+    updateTimerUI();
+  }
+
+  function switchMode(mode) {
+    if (timer.running) {
+      if (!confirm('计时正在进行中，切换模式会结束当前计时（不记录时长）。确定吗？')) return;
+    }
+    stopTimer();
+    timer.mode = mode;
+    timer.startedFocusTaskId = '';
+
+    if (mode === 'countdown') {
+      timer.remaining = timer.total;
+      timer.elapsed = 0;
+    } else {
+      timer.elapsed = 0;
+    }
+    updateTimerUI();
+  }
+
+  try {
+    var savedMin = Number(localStorage.getItem(TIMER_KEY));
+    if (savedMin >= 1 && savedMin <= 180) {
+      timer.total = savedMin * 60;
+      timer.remaining = timer.total;
+    }
+  } catch (e) {}
+
+  btnStart.addEventListener('click', function () {
+    if (timer.mode === 'countdown' && timer.remaining <= 0) timer.remaining = timer.total;
+    startTimer();
+  });
+  
+  btnPause.addEventListener('click', function () {
+    stopTimer();
+  });
+  
+  btnFinish.addEventListener('click', function () {
+    var label = timer.mode === 'countdown' ? '提前结束倒计时' : '结束正计时';
+    if (confirm('确定要' + label + '并记录已有时间吗？')) {
+      finishTimer(false);
+    }
+  });
+
+  btnReset.addEventListener('click', function () {
+    if (timer.mode === 'countdown' && timer.remaining === 0) {
+      timer.remaining = timer.total;
+      updateTimerUI();
+    } else {
+      resetTimer();
+    }
+  });
+
+  // 清空专注时长
+  document.getElementById('btn-clear-focus').addEventListener('click', clearFocusStats);
+
+  // 模式切换
+  timerModeSwitch.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-mode]');
+    if (!btn) return;
+    var mode = btn.dataset.mode;
+    if (mode === timer.mode) return;
+    switchMode(mode);
+  });
+
+  presetsContainer.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-min]');
+    if (!btn) return;
+    setDuration(Number(btn.dataset.min));
+  });
+
+  btnApplyCustom.addEventListener('click', function () {
+    setDuration(customInput.value);
+  });
+  customInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      setDuration(customInput.value);
+    }
+  });
+
+  focusTaskSelect.addEventListener('change', function () {
+    state.focusTaskId = focusTaskSelect.value || '';
+  });
+
+  document.getElementById('stats-toggle').addEventListener('click', function () {
+    var panel = document.getElementById('stats-panel');
+    panel.classList.toggle('open');
+    this.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
+  });
+
+  document.getElementById('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var titleInput = document.getElementById('title');
+    var title = titleInput.value.trim();
+    if (!title) return;
+
+    addTask(title, document.getElementById('due').value, document.getElementById('priority').value);
+
+    titleInput.value = '';
+    document.getElementById('due').value = '';
+    document.getElementById('priority').value = '1';
+    titleInput.focus();
+    renderFocusTaskSelect();
+  });
+
+  var list = document.getElementById('list');
+
+  list.addEventListener('change', function (e) {
+    if (!e.target.classList.contains('task-check')) return;
+    var row = e.target.closest('.task');
+    if (row) toggleTask(row.dataset.id);
+  });
+
+  list.addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    var row = btn.closest('.task');
+    if (!row) return;
+    var action = btn.dataset.action;
+
+    if (action === 'delete') {
+      deleteTask(row.dataset.id);
+    } else if (action === 'edit') {
+      state.editingId = row.dataset.id;
+      render();
+    } else if (action === 'save') {
+      handleSave(row);
+    } else if (action === 'cancel-edit') {
+      state.editingId = null;
+      render();
+    } else if (action === 'pin') {
+      togglePin(row.dataset.id);
+    }
+  });
+
+  list.addEventListener('click', function (e) {
+    if (!e.target.classList.contains('task-title') && !e.target.closest('.task-title')) return;
+    var row = e.target.closest('.task');
+    if (!row || row.classList.contains('editing')) return;
+    if (e.target.dataset.action) return; 
+    state.editingId = row.dataset.id;
+    render();
+  });
+
+  list.addEventListener('keydown', function (e) {
+    var row = e.target.closest('.task.editing');
+    if (!row) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSave(row);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      state.editingId = null;
+      render();
+    }
+  });
+
+  document.querySelectorAll('[data-filter]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.filter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  document.getElementById('clear-done').addEventListener('click', clearDone);
+
+  document.getElementById('export-btn').addEventListener('click', exportJSON);
+  document.getElementById('import-btn').addEventListener('click', function () {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', function (e) {
+    var file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (file) importJSON(file);
+  });
+
+  document.getElementById('theme-btn').addEventListener('click', toggleTheme);
+
+  // ---------- Days Matter 倒数日 ----------
+  var daysMatterData = [];
+
+  function loadDaysMatter() {
+    try {
+      var raw = localStorage.getItem(DM_STORAGE_KEY);
+      daysMatterData = raw ? JSON.parse(raw) : []; // 默认清空
+    } catch (e) { daysMatterData = []; }
+  }
+
+  function saveDaysMatter() {
+    localStorage.setItem(DM_STORAGE_KEY, JSON.stringify(daysMatterData));
+  }
+
+  function renderDaysMatter() {
+    var listEl = document.getElementById('dm-list');
+    listEl.innerHTML = '';
+    
+    if (daysMatterData.length === 0) {
+      listEl.innerHTML = '<div class="dm-empty">暂无倒数日，点击上方添加</div>';
+      return;
+    }
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 按日期排序
+    daysMatterData.sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+
+    daysMatterData.forEach(function (item) {
+      var targetDate = new Date(item.date);
+      targetDate.setHours(0, 0, 0, 0);
+      
+      var diffTime = targetDate - today;
+      var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+      var card = document.createElement('div');
+      
+      var cls = 'future';
+      var text = diffDays + '<span>天后</span>';
+      if (diffDays === 0) {
+        cls = 'today';
+        text = '今天';
+      } else if (diffDays < 0) {
+        cls = 'past';
+        text = Math.abs(diffDays) + '<span>天前</span>';
+      }
+
+      card.className = 'dm-card ' + cls;
+      card.innerHTML = 
+        '<button class="dm-delete" data-id="' + item.id + '" title="删除">✕</button>' +
+        '<div class="dm-title" title="' + item.title + '">' + item.title + '</div>' +
+        '<div class="dm-days ' + cls + '">' + text + '</div>';
+
+      listEl.appendChild(card);
+    });
+  }
+
+  // 添加倒数日
+  document.getElementById('add-dm-btn').addEventListener('click', function () {
+    var title = prompt('请输入事件名称（如：生日、考试）：');
+    if (!title || !title.trim()) return;
+    
+    var dateStr = prompt('请输入日期（格式：YYYY-MM-DD，例如 2026-12-31）：');
+    if (!dateStr) return;
+    // 简单校验日期格式
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      alert('日期格式不正确，请重新添加。');
+      return;
+    }
+
+    daysMatterData.push({
+      id: Date.now().toString(36),
+      title: title.trim(),
+      date: dateStr
+    });
+    saveDaysMatter();
+    renderDaysMatter();
+  });
+
+  // 删除倒数日
+  document.getElementById('dm-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('.dm-delete');
+    if (!btn) return;
+    var id = btn.dataset.id;
+    if (confirm('确定删除这个倒数日吗？')) {
+      daysMatterData = daysMatterData.filter(function (d) { return d.id !== id; });
+      saveDaysMatter();
+      renderDaysMatter();
+    }
+  });
+
+  // ---------- 启动 ----------
+  load();
+  loadDaysMatter();
+  render();
+  renderDaysMatter();
+  renderFocusTaskSelect();
+  applyThemeButton();
+  updateTimerUI();
+})();
+</script>
+</body>
+</html>
