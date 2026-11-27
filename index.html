@@ -63,7 +63,9 @@
     -webkit-font-smoothing: antialiased;
     transition: background .2s, color .2s;
   }
-  .app { max-width: 640px; margin: 0 auto; }
+  
+  /* 调整最大宽度，容纳左右分栏 */
+  .app { max-width: 1200px; margin: 0 auto; transition: max-width .3s; }
 
   header {
     display: flex;
@@ -80,12 +82,14 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    transition: font-size .3s;
   }
   .logo-icon {
     width: 32px;
     height: 32px;
     flex: 0 0 auto;
     color: var(--brand);
+    transition: width .3s, height .3s;
   }
   .header-right {
     display: flex;
@@ -128,10 +132,113 @@
     background: var(--input-bg);
     color: var(--text);
     outline: none;
+    transition: border-color .2s, box-shadow .2s;
   }
   input:focus, select:focus {
     border-color: var(--brand);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+  }
+
+  /* ---------- 核心布局：左侧边栏 + 右侧主内容 ---------- */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr; /* 默认小屏幕：单列堆叠 */
+    gap: 20px;
+    align-items: start;
+  }
+
+  /* ---------- Days Matter 侧边栏 ---------- */
+  .sidebar {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    /* 在宽屏时吸顶固定 */
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+  }
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+  }
+  
+  .days-matter-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .dm-card {
+    background: var(--hover);
+    border-radius: 8px;
+    padding: 12px 14px;
+    position: relative;
+    border-left: 4px solid var(--line); /* 左侧颜色条 */
+    transition: transform .2s, border-color .2s;
+  }
+  .dm-card:hover { transform: translateX(4px); }
+  .dm-card.future { border-left-color: var(--brand); }
+  .dm-card.today { border-left-color: var(--success); }
+  .dm-card.past { border-left-color: var(--muted); }
+
+  .dm-card .dm-title {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dm-card .dm-days {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.1;
+  }
+  .dm-card .dm-days.future { color: var(--brand); }
+  .dm-card .dm-days.past { color: var(--muted); }
+  .dm-card .dm-days.today { color: var(--success); }
+  .dm-card .dm-days span { font-size: 12px; font-weight: normal; margin-left: 4px; }
+  
+  .dm-delete {
+    position: absolute;
+    top: 8px; right: 8px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .dm-card:hover .dm-delete { opacity: 1; }
+  .dm-delete:hover { color: var(--danger); }
+
+  /* 侧边栏空状态 */
+  .dm-empty {
+    font-size: 13px;
+    color: var(--muted);
+    text-align: center;
+    padding: 20px 0;
+  }
+
+  /* ---------- 右侧主内容区 ---------- */
+  .main-content {
+    display: flex;
+    flex-direction: column;
   }
 
   /* 输入区 */
@@ -143,6 +250,7 @@
     padding: 12px;
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    transition: padding .3s, gap .3s;
   }
   #title { grid-column: 1 / -1; }
   #add-btn { padding: 9px 18px; }
@@ -159,7 +267,7 @@
     align-items: center;
     gap: 14px;
     border: 1px solid var(--line);
-    transition: background .2s, border-color .2s;
+    transition: background .2s, border-color .2s, padding .3s;
   }
 
   .timer-mode-switch {
@@ -198,6 +306,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: width .3s, height .3s;
   }
   .timer-ring-wrap svg {
     transform: rotate(-90deg);
@@ -226,7 +335,7 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 1px;
     color: var(--text);
-    transition: color .3s;
+    transition: color .3s, font-size .3s;
   }
   .timer-display.running { color: var(--brand); }
   .timer-display.stopwatch-running { color: var(--stopwatch); }
@@ -426,6 +535,7 @@
     gap: 10px;
     padding: 13px 14px;
     border-bottom: 1px solid var(--line);
+    transition: padding .3s;
   }
   .task:last-child { border-bottom: none; }
   .task.done .task-title { color: var(--muted); text-decoration: line-through; }
@@ -449,6 +559,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    transition: font-size .3s;
   }
   .pin-icon { font-size: 12px; }
   .task-due { margin: 3px 0 0; font-size: 12px; color: var(--muted); }
@@ -518,6 +629,30 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
   }
 
+  /* ----- 响应式调整 ----- */
+  
+  /* 小屏幕（手机）：单列堆叠 */
+  @media (max-width: 900px) {
+    .main-layout {
+      grid-template-columns: 1fr;
+    }
+    .sidebar {
+      position: static; /* 取消吸顶 */
+      max-height: none;
+      padding: 12px;
+    }
+    /* 小屏幕时侧边栏的卡片改为横向排列，节省空间 */
+    .days-matter-list {
+      flex-direction: row;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .dm-card {
+      flex: 0 0 auto;
+      min-width: 120px;
+    }
+  }
+
   @media (max-width: 560px) {
     #form { grid-template-columns: 1fr 1fr; }
     #title { grid-column: 1 / -1; }
@@ -528,6 +663,43 @@
     .timer-display { font-size: 34px; }
     .timer-ring-wrap { width: 170px; height: 170px; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* 全屏宽屏自适应放大 */
+  @media (min-width: 1024px) {
+    .app { max-width: 1200px; margin-top: 30px; }
+    
+    .main-layout {
+      /* 桌面端开启左右双栏布局！左侧固定 300px，右侧自适应 */
+      grid-template-columns: 300px 1fr; 
+      gap: 24px;
+    }
+    
+    h1 { font-size: 30px; }
+    .logo-icon { width: 38px; height: 38px; }
+    
+    #form { padding: 16px; gap: 10px; }
+    #title { font-size: 16px; padding: 12px 14px; }
+    #add-btn { padding: 12px 24px; font-size: 15px; }
+    
+    .sidebar { padding: 20px; }
+    .sidebar-header { font-size: 16px; }
+    .dm-card { padding: 16px; }
+    .dm-card .dm-title { font-size: 14px; }
+    .dm-card .dm-days { font-size: 26px; }
+    
+    .timer-section { padding: 30px; gap: 20px; }
+    .timer-ring-wrap { width: 260px; height: 260px; }
+    .timer-display { font-size: 56px; }
+    
+    .timer-mode-switch button { padding: 8px 28px; font-size: 15px; }
+    .timer-presets button { padding: 8px 18px; font-size: 14px; }
+    .timer-custom input { width: 80px; padding: 8px; font-size: 14px; }
+    .timer-custom button { padding: 8px 16px; font-size: 14px; }
+    .timer-controls button { padding: 12px 28px; font-size: 16px; }
+    
+    .task { padding: 16px 20px; }
+    .task-title { font-size: 16px; }
   }
 </style>
 </head>
@@ -556,119 +728,139 @@
 
   <input type="file" id="import-file" accept="application/json,.json" hidden>
 
-  <form id="form" autocomplete="off">
-    <input id="title" type="text" placeholder="要做什么？按回车添加" maxlength="200">
-    <input id="due" type="date" title="截止日期（可选）">
-    <select id="priority" title="优先级">
-      <option value="1">低</option>
-      <option value="2">中</option>
-      <option value="3">高</option>
-    </select>
-    <button type="submit" id="add-btn">添加</button>
-  </form>
+  <!-- 核心布局：左侧 Days Matter，右侧主内容 -->
+  <div class="main-layout">
+    
+    <!-- 左侧边栏：Days Matter -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <span>⏳ Days Matter</span>
+        <button type="button" id="add-dm-btn" class="ghost" style="padding: 4px 8px; font-size: 12px;">+ 添加</button>
+      </div>
+      <div class="days-matter-list" id="dm-list">
+        <!-- 动态生成的卡片会放在这里 -->
+      </div>
+    </aside>
 
-  <!-- 专注时钟 -->
-  <div class="timer-section">
-    <!-- 模式切换 -->
-    <div class="timer-mode-switch" id="timer-mode-switch">
-      <button type="button" data-mode="countdown" class="active">⏳ 倒计时</button>
-      <button type="button" data-mode="stopwatch">⏱️ 正计时</button>
-    </div>
+    <!-- 右侧主内容区 -->
+    <main class="main-content">
+      
+      <form id="form" autocomplete="off">
+        <input id="title" type="text" placeholder="要做什么？按回车添加" maxlength="200">
+        <input id="due" type="date" title="截止日期（可选）">
+        <select id="priority" title="优先级">
+          <option value="1">低</option>
+          <option value="2">中</option>
+          <option value="3">高</option>
+        </select>
+        <button type="submit" id="add-btn">添加</button>
+      </form>
 
-    <div class="timer-ring-wrap">
-      <svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle class="timer-ring-bg" cx="50" cy="50" r="45"></circle>
-        <circle class="timer-ring-fg" id="timer-ring-fg" cx="50" cy="50" r="45"
-                stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
-      </svg>
-      <div class="timer-display" id="timer-display">25:00</div>
-    </div>
+      <!-- 专注时钟 -->
+      <div class="timer-section">
+        <!-- 模式切换 -->
+        <div class="timer-mode-switch" id="timer-mode-switch">
+          <button type="button" data-mode="countdown" class="active">⏳ 倒计时</button>
+          <button type="button" data-mode="stopwatch">⏱️ 正计时</button>
+        </div>
 
-    <div class="timer-task-select">
-      <label for="focus-task">当前专注：</label>
-      <select id="focus-task">
-        <option value="">（不关联任务，仅记录总时长）</option>
-      </select>
-    </div>
+        <div class="timer-ring-wrap">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <circle class="timer-ring-bg" cx="50" cy="50" r="45"></circle>
+            <circle class="timer-ring-fg" id="timer-ring-fg" cx="50" cy="50" r="45"
+                    stroke-dasharray="282.74" stroke-dashoffset="0"></circle>
+          </svg>
+          <div class="timer-display" id="timer-display">25:00</div>
+        </div>
 
-    <!-- 倒计时预设，正计时时隐藏 -->
-    <div class="timer-presets" id="timer-presets">
-      <button type="button" data-min="25" class="active">25 分钟</button>
-      <button type="button" data-min="45">45 分钟</button>
-      <button type="button" data-min="60">60 分钟</button>
-    </div>
+        <div class="timer-task-select">
+          <label for="focus-task">当前专注：</label>
+          <select id="focus-task">
+            <option value="">（不关联任务，仅记录总时长）</option>
+          </select>
+        </div>
 
-    <div class="timer-custom" id="timer-custom-row">
-      <label for="custom-min">自定义</label>
-      <input type="number" id="custom-min" min="1" max="180" value="25" step="1">
-      <span>分钟</span>
-      <button type="button" id="btn-apply-custom">应用</button>
-    </div>
+        <!-- 倒计时预设，正计时时隐藏 -->
+        <div class="timer-presets" id="timer-presets">
+          <button type="button" data-min="25" class="active">25 分钟</button>
+          <button type="button" data-min="45">45 分钟</button>
+          <button type="button" data-min="60">60 分钟</button>
+        </div>
 
-    <div class="timer-controls">
-      <button type="button" id="btn-start" class="btn-start">开始专注</button>
-      <button type="button" id="btn-pause" class="btn-pause" style="display:none;">暂停</button>
-      <button type="button" id="btn-finish" class="btn-finish" style="display:none;">完成并记录</button>
-      <button type="button" id="btn-reset" class="btn-reset" style="display:none;">重置</button>
-    </div>
+        <div class="timer-custom" id="timer-custom-row">
+          <label for="custom-min">自定义</label>
+          <input type="number" id="custom-min" min="1" max="180" value="25" step="1">
+          <span>分钟</span>
+          <button type="button" id="btn-apply-custom">应用</button>
+        </div>
 
-    <!-- 清空专注时长 -->
-    <div class="timer-clear-wrap">
-      <button type="button" id="btn-clear-focus">🧹 清空专注时长统计</button>
-    </div>
+        <div class="timer-controls">
+          <button type="button" id="btn-start" class="btn-start">开始专注</button>
+          <button type="button" id="btn-pause" class="btn-pause" style="display:none;">暂停</button>
+          <button type="button" id="btn-finish" class="btn-finish" style="display:none;">完成并记录</button>
+          <button type="button" id="btn-reset" class="btn-reset" style="display:none;">重置</button>
+        </div>
+
+        <!-- 清空专注时长 -->
+        <div class="timer-clear-wrap">
+          <button type="button" id="btn-clear-focus">🧹 清空专注时长统计</button>
+        </div>
+      </div>
+
+      <!-- 数据统计面板 -->
+      <div class="stats-panel" id="stats-panel">
+        <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
+          <span>📊 数据统计</span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card info">
+            <div class="stat-value" id="st-total">0</div>
+            <div class="stat-label">总任务</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-left">0</div>
+            <div class="stat-label">未完成</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-done">0</div>
+            <div class="stat-label">已完成</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-today">0</div>
+            <div class="stat-label">今日到期</div>
+          </div>
+          <div class="stat-card bad">
+            <div class="stat-value" id="st-overdue">0</div>
+            <div class="stat-label">已逾期</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-focus-count">0</div>
+            <div class="stat-label">总专注次数</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-focus-min">0</div>
+            <div class="stat-label">总专注时长(分)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-standalone-focus">0</div>
+            <div class="stat-label">独立专注(分)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <button type="button" data-filter="all">全部</button>
+        <button type="button" data-filter="today">今天</button>
+        <button type="button" data-filter="done">已完成</button>
+        <button type="button" id="clear-done">清除已完成</button>
+      </div>
+
+      <div id="list"></div>
+      <div id="empty">暂无任务</div>
+      
+    </main>
   </div>
-
-  <!-- 数据统计面板 -->
-  <div class="stats-panel" id="stats-panel">
-    <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
-      <span>📊 数据统计</span>
-      <span class="arrow">▼</span>
-    </button>
-    <div class="stats-grid" id="stats-grid">
-      <div class="stat-card info">
-        <div class="stat-value" id="st-total">0</div>
-        <div class="stat-label">总任务</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="st-left">0</div>
-        <div class="stat-label">未完成</div>
-      </div>
-      <div class="stat-card good">
-        <div class="stat-value" id="st-done">0</div>
-        <div class="stat-label">已完成</div>
-      </div>
-      <div class="stat-card info">
-        <div class="stat-value" id="st-today">0</div>
-        <div class="stat-label">今日到期</div>
-      </div>
-      <div class="stat-card bad">
-        <div class="stat-value" id="st-overdue">0</div>
-        <div class="stat-label">已逾期</div>
-      </div>
-      <div class="stat-card good">
-        <div class="stat-value" id="st-focus-count">0</div>
-        <div class="stat-label">总专注次数</div>
-      </div>
-      <div class="stat-card info">
-        <div class="stat-value" id="st-focus-min">0</div>
-        <div class="stat-label">总专注时长(分)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value" id="st-standalone-focus">0</div>
-        <div class="stat-label">独立专注(分)</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="filters">
-    <button type="button" data-filter="all">全部</button>
-    <button type="button" data-filter="today">今天</button>
-    <button type="button" data-filter="done">已完成</button>
-    <button type="button" id="clear-done">清除已完成</button>
-  </div>
-
-  <div id="list"></div>
-  <div id="empty">暂无任务</div>
 </div>
 
 <script>
@@ -679,6 +871,7 @@
   var THEME_KEY = 'todo-theme';
   var TIMER_KEY = 'todo-timer-min';
   var GLOBAL_FOCUS_KEY = 'todo-global-focus';
+  var DM_STORAGE_KEY = 'todo-days-matter';
 
   var state = {
     tasks: [],
@@ -1660,9 +1853,103 @@
 
   document.getElementById('theme-btn').addEventListener('click', toggleTheme);
 
+  // ---------- Days Matter 倒数日 ----------
+  var daysMatterData = [];
+
+  function loadDaysMatter() {
+    try {
+      var raw = localStorage.getItem(DM_STORAGE_KEY);
+      daysMatterData = raw ? JSON.parse(raw) : [ ];
+    } catch (e) { daysMatterData = []; }
+  }
+
+  function saveDaysMatter() {
+    localStorage.setItem(DM_STORAGE_KEY, JSON.stringify(daysMatterData));
+  }
+
+  function renderDaysMatter() {
+    var listEl = document.getElementById('dm-list');
+    listEl.innerHTML = '';
+    
+    if (daysMatterData.length === 0) {
+      listEl.innerHTML = '<div class="dm-empty">暂无倒数日，点击上方添加</div>';
+      return;
+    }
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 按日期排序
+    daysMatterData.sort(function(a, b) { return new Date(a.date) - new Date(b.date); });
+
+    daysMatterData.forEach(function (item) {
+      var targetDate = new Date(item.date);
+      targetDate.setHours(0, 0, 0, 0);
+      
+      var diffTime = targetDate - today;
+      var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+      var card = document.createElement('div');
+      
+      var cls = 'future';
+      var text = diffDays + '<span>天后</span>';
+      if (diffDays === 0) {
+        cls = 'today';
+        text = '今天';
+      } else if (diffDays < 0) {
+        cls = 'past';
+        text = Math.abs(diffDays) + '<span>天前</span>';
+      }
+
+      card.className = 'dm-card ' + cls;
+      card.innerHTML = 
+        '<button class="dm-delete" data-id="' + item.id + '" title="删除">✕</button>' +
+        '<div class="dm-title" title="' + item.title + '">' + item.title + '</div>' +
+        '<div class="dm-days ' + cls + '">' + text + '</div>';
+
+      listEl.appendChild(card);
+    });
+  }
+
+  // 添加倒数日
+  document.getElementById('add-dm-btn').addEventListener('click', function () {
+    var title = prompt('请输入事件名称（如：生日、考试）：');
+    if (!title || !title.trim()) return;
+    
+    var dateStr = prompt('请输入日期（格式：YYYY-MM-DD，例如 2026-12-31）：');
+    if (!dateStr) return;
+    // 简单校验日期格式
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      alert('日期格式不正确，请重新添加。');
+      return;
+    }
+
+    daysMatterData.push({
+      id: Date.now().toString(36),
+      title: title.trim(),
+      date: dateStr
+    });
+    saveDaysMatter();
+    renderDaysMatter();
+  });
+
+  // 删除倒数日
+  document.getElementById('dm-list').addEventListener('click', function (e) {
+    var btn = e.target.closest('.dm-delete');
+    if (!btn) return;
+    var id = btn.dataset.id;
+    if (confirm('确定删除这个倒数日吗？')) {
+      daysMatterData = daysMatterData.filter(function (d) { return d.id !== id; });
+      saveDaysMatter();
+      renderDaysMatter();
+    }
+  });
+
   // ---------- 启动 ----------
   load();
+  loadDaysMatter();
   render();
+  renderDaysMatter();
   renderFocusTaskSelect();
   applyThemeButton();
   updateTimerUI();
