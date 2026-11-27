@@ -64,7 +64,6 @@
     transition: background .2s, color .2s;
   }
   
-  /* 调整最大宽度，容纳左右分栏 */
   .app { max-width: 1200px; margin: 0 auto; transition: max-width .3s; }
 
   header {
@@ -142,25 +141,29 @@
   /* ---------- 核心布局：左侧边栏 + 右侧主内容 ---------- */
   .main-layout {
     display: grid;
-    grid-template-columns: 1fr; /* 默认小屏幕：单列堆叠 */
+    grid-template-columns: 1fr;
     gap: 20px;
     align-items: start;
   }
 
-  /* ---------- Days Matter 侧边栏 ---------- */
+  /* ---------- 左侧边栏 ---------- */
   .sidebar {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 16px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     /* 在宽屏时吸顶固定 */
     position: sticky;
     top: 20px;
     max-height: calc(100vh - 40px);
     overflow-y: auto;
+  }
+
+  /* 侧边栏通用区块 */
+  .sidebar-block {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
   }
   .sidebar-header {
     display: flex;
@@ -171,6 +174,7 @@
     color: var(--text);
     border-bottom: 1px solid var(--line);
     padding-bottom: 10px;
+    margin-bottom: 12px;
   }
   
   .days-matter-list {
@@ -184,7 +188,7 @@
     border-radius: 8px;
     padding: 12px 14px;
     position: relative;
-    border-left: 4px solid var(--line); /* 左侧颜色条 */
+    border-left: 4px solid var(--line);
     transition: transform .2s, border-color .2s;
   }
   .dm-card:hover { transform: translateX(4px); }
@@ -227,13 +231,87 @@
   .dm-card:hover .dm-delete { opacity: 1; }
   .dm-delete:hover { color: var(--danger); }
 
-  /* 侧边栏空状态 */
   .dm-empty {
     font-size: 13px;
     color: var(--muted);
     text-align: center;
     padding: 20px 0;
   }
+
+  /* ---------- 修正后的统计面板（侧边栏内） ---------- */
+  .sidebar .stats-panel {
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
+    overflow: hidden;
+    /* 取消 margin-top，让它自然排列 */
+    margin-top: 0;
+  }
+  
+  /* 修复：折叠按钮恢复成统一的标题风格 */
+  .sidebar .stats-toggle {
+    width: 100%;
+    text-align: left;
+    background: transparent; /* 去除蓝色背景 */
+    color: var(--text);
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 0;
+    border-bottom: 1px solid transparent;
+    transition: background .2s, border-color .2s;
+  }
+  .sidebar .stats-toggle:hover { 
+    background: var(--hover); 
+  }
+  
+  .sidebar .stats-panel.open .stats-toggle {
+    border-bottom-color: var(--line);
+  }
+  
+  .sidebar .stats-toggle .arrow { 
+    transition: transform .2s; 
+    font-size: 12px; 
+    color: var(--muted); 
+  }
+  .sidebar .stats-panel.open .stats-toggle .arrow { 
+    transform: rotate(180deg); 
+  }
+
+  /* 展开后的统计数据网格 */
+  .sidebar .stats-grid {
+    display: none;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 12px 16px 16px 16px;
+  }
+  .sidebar .stats-panel.open .stats-grid { 
+    display: grid; 
+  }
+  
+  .stat-card {
+    background: var(--hover);
+    border-radius: 8px;
+    padding: 10px 6px;
+    text-align: center;
+  }
+  .stat-card .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .stat-card.good .stat-value { color: var(--success); }
+  .stat-card.bad .stat-value { color: var(--danger); }
+  .stat-card.info .stat-value { color: var(--brand); }
+  .stat-card.purple .stat-value { color: var(--stopwatch); }
 
   /* ---------- 右侧主内容区 ---------- */
   .main-content {
@@ -445,58 +523,6 @@
     border-color: var(--danger);
   }
 
-  /* ---------- 统计面板 ---------- */
-  .stats-panel {
-    margin-top: 16px;
-    background: var(--card);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .07);
-    overflow: hidden;
-  }
-  .stats-toggle {
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    color: var(--text);
-    padding: 12px 16px;
-    font-size: 14px;
-    font-weight: 600;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-radius: 0;
-  }
-  .stats-toggle:hover { background: var(--hover); }
-  .stats-toggle .arrow { transition: transform .2s; font-size: 12px; color: var(--muted); }
-  .stats-panel.open .stats-toggle .arrow { transform: rotate(180deg); }
-  .stats-grid {
-    display: none;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    padding: 0 16px 16px;
-  }
-  .stats-panel.open .stats-grid { display: grid; }
-  .stat-card {
-    background: var(--hover);
-    border-radius: 10px;
-    padding: 12px 10px;
-    text-align: center;
-  }
-  .stat-card .stat-value {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--text);
-  }
-  .stat-card .stat-label {
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 4px;
-  }
-  .stat-card.good .stat-value { color: var(--success); }
-  .stat-card.bad .stat-value { color: var(--danger); }
-  .stat-card.info .stat-value { color: var(--brand); }
-  .stat-card.purple .stat-value { color: var(--stopwatch); }
-
   /* 筛选栏 */
   .filters {
     display: flex;
@@ -637,11 +663,9 @@
       grid-template-columns: 1fr;
     }
     .sidebar {
-      position: static; /* 取消吸顶 */
+      position: static;
       max-height: none;
-      padding: 12px;
     }
-    /* 小屏幕时侧边栏的卡片改为横向排列，节省空间 */
     .days-matter-list {
       flex-direction: row;
       overflow-x: auto;
@@ -650,6 +674,10 @@
     .dm-card {
       flex: 0 0 auto;
       min-width: 120px;
+    }
+    /* 小屏幕时，统计面板恢复 3 列 */
+    .sidebar .stats-grid {
+      grid-template-columns: repeat(3, 1fr);
     }
   }
 
@@ -662,7 +690,8 @@
     #stats { flex: 1 1 100%; }
     .timer-display { font-size: 34px; }
     .timer-ring-wrap { width: 170px; height: 170px; }
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    /* 再小一点，统计面板改回 2 列 */
+    .sidebar .stats-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
   /* 全屏宽屏自适应放大 */
@@ -670,8 +699,7 @@
     .app { max-width: 1200px; margin-top: 30px; }
     
     .main-layout {
-      /* 桌面端开启左右双栏布局！左侧固定 300px，右侧自适应 */
-      grid-template-columns: 300px 1fr; 
+      grid-template-columns: 300px 1fr; /* 左侧 300px，右侧自适应 */
       gap: 24px;
     }
     
@@ -682,8 +710,8 @@
     #title { font-size: 16px; padding: 12px 14px; }
     #add-btn { padding: 12px 24px; font-size: 15px; }
     
-    .sidebar { padding: 20px; }
-    .sidebar-header { font-size: 16px; }
+    .sidebar-block, .sidebar .stats-panel { padding: 20px; }
+    .sidebar-header, .sidebar .stats-toggle { font-size: 16px; }
     .dm-card { padding: 16px; }
     .dm-card .dm-title { font-size: 14px; }
     .dm-card .dm-days { font-size: 26px; }
@@ -728,18 +756,65 @@
 
   <input type="file" id="import-file" accept="application/json,.json" hidden>
 
-  <!-- 核心布局：左侧 Days Matter，右侧主内容 -->
+  <!-- 核心布局：左侧边栏，右侧主内容 -->
   <div class="main-layout">
     
-    <!-- 左侧边栏：Days Matter -->
+    <!-- 左侧边栏 -->
     <aside class="sidebar">
-      <div class="sidebar-header">
-        <span>⏳ Days Matter</span>
-        <button type="button" id="add-dm-btn" class="ghost" style="padding: 4px 8px; font-size: 12px;">+ 添加</button>
+      
+      <!-- 倒数日板块 -->
+      <div class="sidebar-block">
+        <div class="sidebar-header">
+          <span>⏳ Days Matter</span>
+          <button type="button" id="add-dm-btn" class="ghost" style="padding: 4px 8px; font-size: 12px;">+ 添加</button>
+        </div>
+        <div class="days-matter-list" id="dm-list">
+          <!-- 动态生成的卡片会放在这里 -->
+        </div>
       </div>
-      <div class="days-matter-list" id="dm-list">
-        <!-- 动态生成的卡片会放在这里 -->
+
+      <!-- 数据统计板块（已移至侧边栏） -->
+      <div class="stats-panel" id="stats-panel">
+        <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
+          <span>📊 数据统计</span>
+          <span class="arrow">▼</span>
+        </button>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card info">
+            <div class="stat-value" id="st-total">0</div>
+            <div class="stat-label">总任务</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-left">0</div>
+            <div class="stat-label">未完成</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-done">0</div>
+            <div class="stat-label">已完成</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-today">0</div>
+            <div class="stat-label">今日到期</div>
+          </div>
+          <div class="stat-card bad">
+            <div class="stat-value" id="st-overdue">0</div>
+            <div class="stat-label">已逾期</div>
+          </div>
+          <div class="stat-card good">
+            <div class="stat-value" id="st-focus-count">0</div>
+            <div class="stat-label">总专注次数</div>
+          </div>
+          <div class="stat-card info">
+            <div class="stat-value" id="st-focus-min">0</div>
+            <div class="stat-label">总专注时长(分)</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="st-standalone-focus">0</div>
+            <div class="stat-label">独立专注(分)</div>
+          </div>
+        </div>
       </div>
+
     </aside>
 
     <!-- 右侧主内容区 -->
@@ -804,48 +879,6 @@
         <!-- 清空专注时长 -->
         <div class="timer-clear-wrap">
           <button type="button" id="btn-clear-focus">🧹 清空专注时长统计</button>
-        </div>
-      </div>
-
-      <!-- 数据统计面板 -->
-      <div class="stats-panel" id="stats-panel">
-        <button type="button" class="stats-toggle" id="stats-toggle" aria-expanded="false">
-          <span>📊 数据统计</span>
-          <span class="arrow">▼</span>
-        </button>
-        <div class="stats-grid" id="stats-grid">
-          <div class="stat-card info">
-            <div class="stat-value" id="st-total">0</div>
-            <div class="stat-label">总任务</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="st-left">0</div>
-            <div class="stat-label">未完成</div>
-          </div>
-          <div class="stat-card good">
-            <div class="stat-value" id="st-done">0</div>
-            <div class="stat-label">已完成</div>
-          </div>
-          <div class="stat-card info">
-            <div class="stat-value" id="st-today">0</div>
-            <div class="stat-label">今日到期</div>
-          </div>
-          <div class="stat-card bad">
-            <div class="stat-value" id="st-overdue">0</div>
-            <div class="stat-label">已逾期</div>
-          </div>
-          <div class="stat-card good">
-            <div class="stat-value" id="st-focus-count">0</div>
-            <div class="stat-label">总专注次数</div>
-          </div>
-          <div class="stat-card info">
-            <div class="stat-value" id="st-focus-min">0</div>
-            <div class="stat-label">总专注时长(分)</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-value" id="st-standalone-focus">0</div>
-            <div class="stat-label">独立专注(分)</div>
-          </div>
         </div>
       </div>
 
@@ -1859,7 +1892,7 @@
   function loadDaysMatter() {
     try {
       var raw = localStorage.getItem(DM_STORAGE_KEY);
-      daysMatterData = raw ? JSON.parse(raw) : [ ];
+      daysMatterData = raw ? JSON.parse(raw) : []; // 默认清空
     } catch (e) { daysMatterData = []; }
   }
 
